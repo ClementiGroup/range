@@ -47,7 +47,7 @@ class BaseMD22Dataset(InMemoryDataset):
                 data = AtomicData.from_points(
                     pos=torch.as_tensor(POSITIONS[confid], dtype=torch.float32),
                     atom_types=torch.as_tensor(Z),
-                    energy=torch.as_tensor(ENERGIES[confid], dtype=torch.float32),
+                    energy=torch.as_tensor([ENERGIES[confid]], dtype=torch.float32),
                     forces=torch.as_tensor(FORCES[confid], dtype=torch.float32),
                 )
                 data_list.append(data)

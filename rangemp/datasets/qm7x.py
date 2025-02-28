@@ -103,7 +103,7 @@ class QM7XDataset(InMemoryDataset):
                     data = AtomicData.from_points(
                         pos=torch.as_tensor(pos, dtype=torch.float32),
                         atom_types=torch.as_tensor(Z),
-                        energy=torch.as_tensor(energy, dtype=torch.float32),
+                        energy=torch.as_tensor([energy], dtype=torch.float32),
                         forces=torch.as_tensor(forces, dtype=torch.float32),
                     )
                     data_list.append(data)
