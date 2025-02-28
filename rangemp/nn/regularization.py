@@ -1,4 +1,7 @@
 import torch
+from typing import Optional
+from mlcg.nn.losses import _Loss
+from mlcg.data import AtomicData
 
 
 class LinearReg(torch.nn.Module):
@@ -52,3 +55,27 @@ class IdentityReg(torch.nn.Module):
 
     def regularized_params(self):
         return torch.zeros_like(self.self_loop)
+    
+class RegL1(_Loss):
+    def __init__(
+        self,
+        reg_kwd: str = "regL1",
+        size_average: Optional[bool] = None,
+        reduce: Optional[bool] = None,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(size_average=size_average, reduce=reduce, reduction=reduction)
+
+        self.reg_kwd = reg_kwd
+
+    def forward(self, data: AtomicData) -> torch.Tensor:
+        if self.reg_kwd not in data.out:
+            raise RuntimeError(
+                f"target property {self.reg_kwd} has not been computed in data.out {list(data.out.keys())}"
+            )
+
+        return torch.nn.functional.l1_loss(
+            data.out[self.reg_kwd],
+            torch.zeros_like(data.out[self.reg_kwd]),
+            reduction=self.reduction,
+        )
