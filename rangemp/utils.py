@@ -4,14 +4,24 @@ from typing import Tuple
 import torch
 
 
-def create_instance(class_path, *args, **kwargs):
-    # Split the class_path into module path and class name
+def create_instance(class_path: str, *args, **kwargs):
+    """
+    Creates class instance from string of the class path.
+
+    Parameters
+    ----------
+    class_path : str
+        Absolute path of the class to instatiate.
+
+    Returns
+    -------
+    cls
+        Class instantiation.
+    """
     module_path, class_name = class_path.rsplit('.', 1)
-    # Dynamically import the module
     module = importlib.import_module(module_path)
-    # Get the class from the module
     cls = getattr(module, class_name)
-    # Instantiate the class with provided arguments and return the object
+
     return cls(*args, **kwargs)
 
 

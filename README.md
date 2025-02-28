@@ -1,5 +1,6 @@
-# RANGE: Relaying Attention Nodes for Global Encoding
-Development repository of the RANGE architecture. 
+![test](banner.png)
+
+RANGE is a model-agnostic framework that employs an attention-based aggregation-broadcast mechanism to significantly reduce oversquashing effects in message-passing neural networks.
 
 ## Prerequisites
 Install the following prerequisites:
@@ -15,11 +16,11 @@ pip install lightning tensorboard torchtnt
 Install the lightning2 branch of the mlcg package:
 ```bash
 git clone -b lightning2 --single-branch git@github.com:ClementiGroup/mlcg.git
-pip install mlcg
+cd mlcg; pip install .; cd ..
 ```
 
 Install the range package
 ```bash
 git clone git@github.com:ClementiGroup/range.git
-pip install range
+cd range; pip install .; cd ..
 ```
