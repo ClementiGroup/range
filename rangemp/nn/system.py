@@ -5,6 +5,36 @@ import torch
 
 @dataclass
 class System:
+    """
+    A data structure representing a system with various tensors and embeddings,
+    used in graph-based computations.
+
+    Attributes:
+        batch (torch.Tensor, optional):
+            A tensor indicating the batch assignments of nodes.
+        embedding (list[torch.Tensor]):
+            A list of tensors representing node embeddings.
+        virt_embedding (torch.Tensor, optional):
+            A tensor representing virtual node embeddings.
+        edge_indices (torch.Tensor, optional):
+            A tensor containing edge index information.
+        edge_weights (torch.Tensor, optional):
+            A tensor storing the edge weights.
+        edge_versors (torch.Tensor, optional):
+            A tensor containing directional unit edge vectors.
+        edge_attrs (torch.Tensor, optional):
+            A tensor storing additional edge features.
+        aggregation_edge_indices (torch.Tensor, optional):
+            A tensor defining indices for aggregation edges in RANGE.
+        aggregation_edge_attrs (torch.Tensor, optional):
+            A tensor storing edge features for aggregation.
+        broadcast_edge_indices (torch.Tensor, optional):
+            A tensor defining indices for broadcast edges in RANGE.
+        broadcast_edge_attrs (torch.Tensor, optional):
+            A tensor storing edge features for broadcast.
+        regularization_weights (torch.Tensor, optional):
+            A tensor storing weights for regularization.
+    """
     batch: torch.Tensor = None
 
     embedding: list[torch.Tensor] = field(default_factory=list)

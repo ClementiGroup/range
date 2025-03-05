@@ -1,35 +1,20 @@
 import importlib
-from typing import Tuple
-
-import torch
 
 
 def create_instance(class_path: str, *args, **kwargs):
     """
-    Creates class instance from string of the class path.
+    Dynamically creates an instance of a class given its full path.
 
-    Parameters
-    ----------
-    class_path : str
-        Absolute path of the class to instatiate.
+    Args:
+        class_path (str): The full path to the class, e.g., 'module.submodule.ClassName'.
+        *args: Positional arguments to pass to the class constructor.
+        **kwargs: Keyword arguments to pass to the class constructor.
 
-    Returns
-    -------
-    cls
-        Class instantiation.
+    Returns:
+        object: An instance of the specified class.
     """
     module_path, class_name = class_path.rsplit('.', 1)
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
 
     return cls(*args, **kwargs)
-
-
-# FIXME: this only works when used to create batches because they are already sorted
-# there is a bug in pytorch that always gives a sorted array with unique
-def uniquen(*tensor_list: Tuple[torch.Tensor]) -> Tuple[torch.Tensor]:
-    zipped_list = torch.stack(tensor_list, dim=0).T
-    indices, indices_inverse = torch.unique(zipped_list,
-                                            return_inverse=True,
-                                            dim=0)
-    return (indices, indices_inverse)

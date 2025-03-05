@@ -10,6 +10,10 @@ from .system import System
 
 
 class AttentionBlock(torch.nn.Module):
+    """
+    Implements a multi-head attention mechanism for graph-based models.
+    """
+
     def __init__(self,
                  channels: int,
                  n_heads: int,
@@ -43,7 +47,18 @@ class AttentionBlock(torch.nn.Module):
                 edge_indices: torch.Tensor,
                 edge_attrs: torch.Tensor,
                 *args) -> torch.Tensor:
+        """
+        Forward pass for the attention block.
 
+        Args:
+            senders (torch.Tensor): Feature matrix of sender nodes.
+            receivers (torch.Tensor): Feature matrix of receiver nodes.
+            edge_indices (torch.Tensor): Edge index tensor.
+            edge_attrs (torch.Tensor): Edge feature tensor.
+
+        Returns:
+            torch.Tensor: Updated node embeddings.
+        """
         E = self.lin_E(edge_attrs)
 
         Q = self.lin_Q(receivers)[edge_indices[1]]
@@ -73,6 +88,9 @@ class AttentionBlock(torch.nn.Module):
         return embedding
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         init_xavier_uniform(self.lin_E)
         init_xavier_uniform(self.lin_Q)
         init_xavier_uniform(self.lin_K)
@@ -81,6 +99,10 @@ class AttentionBlock(torch.nn.Module):
 
 
 class SelfAttentionBlock(AttentionBlock):
+    """
+    Implements a self-attention mechanism, extending AttentionBlock with additional transformations.
+    """
+
     def __init__(self,
                  channels: int,
                  n_heads: int,
@@ -104,7 +126,20 @@ class SelfAttentionBlock(AttentionBlock):
                 edge_attrs: torch.Tensor,
                 regularization_weights: torch.Tensor,
                 *args) -> torch.Tensor:
+        """
+        Forward pass for the attention block.
 
+        Args:
+            senders (torch.Tensor): Feature matrix of sender nodes.
+            senders_self (torch.Tensor): Feature matrix of sender nodes in self-loops.
+            receivers (torch.Tensor): Feature matrix of receiver nodes.
+            edge_indices (torch.Tensor): Edge index tensor.
+            edge_attrs (torch.Tensor): Edge feature tensor.
+            regularization_weights (torch.Tensor): .
+
+        Returns:
+            torch.Tensor: Updated node embeddings.
+        """
         K = torch.vmap(torch.matmul, in_dims=(1, 0), out_dims=1)(senders.view(-1,
                                                                               self.n_heads,
                                                                               self.hidden_channels),
