@@ -16,7 +16,7 @@ class BaseMD22Dataset(InMemoryDataset):
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def download(self):
-        """Download the datas and store them in self.raw_dir directory"""
+        """Download the data and store them in self.raw_dir directory"""
         raise NotImplementedError
 
     @property

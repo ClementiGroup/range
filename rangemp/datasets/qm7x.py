@@ -10,7 +10,7 @@ from mlcg.data import AtomicData
 
 
 class QM7XDataset(InMemoryDataset):
-    """Extractor for QM7X dataset described in https://doi.org/10.1038/s41597-021-00812-2"""
+    """Extractor for the QM7X dataset described in https://doi.org/10.1038/s41597-021-00812-2"""
 
     # Set names of reference dataset extracted
     set_ids = ["1000", "2000", "3000", "4000", "5000", "6000", "7000", "8000"]
@@ -43,7 +43,7 @@ class QM7XDataset(InMemoryDataset):
         self.beta = 1 / (self.temperature * self.beta)
 
     def download(self):
-        """Download the datas and store them in self.raw_dir directory"""
+        """Download the data and store them in self.raw_dir directory"""
         host_link = "https://zenodo.org/records/3905361/files"
         for set_id in self.set_ids:
             url_set = f"{host_link}/{set_id}.xz"

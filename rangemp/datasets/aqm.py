@@ -10,7 +10,7 @@ from mlcg.data import AtomicData
 
 
 class AQMBASEDataset(InMemoryDataset):
-    """General base extractor for AQM dataset described in https://doi.org/10.1038/s41597-024-03521-8"""
+    """General base extractor for the AQM dataset described in https://doi.org/10.1038/s41597-024-03521-8"""
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
@@ -22,7 +22,7 @@ class AQMBASEDataset(InMemoryDataset):
         self.beta = 1 / (self.temperature * self.beta)
 
     def download(self):
-        """Download the datas and store them in self.raw_dir directory"""
+        """Download the data and store them in self.raw_dir directory"""
         raise NotImplementedError
 
     @property
@@ -73,13 +73,13 @@ class AQMBASEDataset(InMemoryDataset):
 
 
 class AQMgasDataset(AQMBASEDataset):
-    """Extractor for AQM dataset in vacuum described in https://doi.org/10.1038/s41597-024-03521-8"""
+    """Extractor for the AQM dataset in vacuum described in https://doi.org/10.1038/s41597-024-03521-8"""
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
 
     def download(self):
-        """Download the datas and store them in self.raw_dir directory"""
+        """Download the data and store them in self.raw_dir directory"""
         url_set = "https://zenodo.org/records/10208010/files/AQM-gas.hdf5"
         download_url(url_set, self.raw_dir)
 
@@ -91,13 +91,13 @@ class AQMgasDataset(AQMBASEDataset):
 
 
 class AQMsolDataset(AQMBASEDataset):
-    """Extractor for AQM dataset with solvent described in https://doi.org/10.1038/s41597-024-03521-8"""
+    """Extractor for the AQM dataset with solvent described in https://doi.org/10.1038/s41597-024-03521-8"""
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
 
     def download(self):
-        """Download the datas and store them in self.raw_dir directory"""
+        """Download the data and store them in self.raw_dir directory"""
         url_set = "https://zenodo.org/records/10208010/files/AQM-sol.hdf5"
         download_url(url_set, self.raw_dir)
 
