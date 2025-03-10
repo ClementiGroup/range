@@ -71,7 +71,8 @@ class RANGESchNet(RANGE):
 
         system.edge_weights = compute_distances(
             data.pos,
-            system.edge_indices
+            system.edge_indices,
+            neighbor_list["cell_shifts"]
         )
 
         system.edge_attrs = self.basis(

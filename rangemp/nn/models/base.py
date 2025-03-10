@@ -11,6 +11,7 @@ from mlcg.neighbor_list.neighbor_list import (
 )
 
 from ..blocks import RANGEInteractionBlock
+from ..utils import calc_weights, calc_weights_pbc
 
 
 class RANGE(torch.nn.Module):
@@ -78,15 +79,10 @@ class RANGE(torch.nn.Module):
                  data.batch)
                 )
 
-        virt_coordinates = scatter(data.pos,
-                                   data.batch,
-                                   reduce='mean',
-                                   dim=0)
-
-        weights = (data.pos - virt_coordinates[data.batch]).norm(p=2, dim=1)
-        norm = scatter(weights, data.batch, reduce='max')[data.batch]
-        norm = norm + (norm == 0.0)
-        weights = weights/norm
+        if "pbc" in data and data.pbc.any():
+            weights = calc_weights_pbc(data)
+        else:
+            weights = calc_weights(data)
 
         range_edge_attrs = self.virt_basis(weights)
 
