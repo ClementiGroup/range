@@ -4,7 +4,6 @@ from torch_scatter import scatter
 from mlcg.data import AtomicData
 
 
-@torch.jit.script
 def calc_weights(data: AtomicData) -> torch.Tensor:
     virt_pos = scatter(data.pos,
                        data.batch,
@@ -19,7 +18,6 @@ def calc_weights(data: AtomicData) -> torch.Tensor:
     return weights
 
 
-@torch.jit.script
 def calc_weights_pbc(data: AtomicData) -> torch.Tensor:
     cell = data.cell.view((-1, 3, 3)).transpose(2, 1)
     pbc = data.pbc.view((-1, 3, 1))

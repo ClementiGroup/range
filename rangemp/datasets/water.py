@@ -76,7 +76,7 @@ class MBPolDataset(InMemoryDataset):
                         pos=torch.as_tensor(coord[confid], dtype=torch.float32),
                         cell=torch.as_tensor(box[confid], dtype=torch.float32),
                         pbc=torch.tensor([True, True, True], dtype=torch.bool),
-                        atom_types=torch.as_tensor(atnum, dtype=torch.int16),
+                        atom_types=torch.as_tensor(atnum, dtype=torch.int32),
                         energy=torch.as_tensor([energy[confid]], dtype=torch.float32),
                         forces=torch.as_tensor(forces[confid], dtype=torch.float32),
                         virial=torch.as_tensor(virial[confid], dtype=torch.float32).view(-1, 3, 3),
