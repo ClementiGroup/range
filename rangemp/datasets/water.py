@@ -59,27 +59,27 @@ class MBPolDataset(InMemoryDataset):
 
             # get IDs of HDF5 files and loop through
             if self.datasets:
-                assert(self.datasets in list(fMOL.keys())), F"One or more datasets not present in the datafile:\n{set(self.datasets) - set(list(fMOL.keys()))}"
+                assert(set(self.datasets) < set(fMOL.keys())), F"One or more datasets not present in the datafile:\n{set(self.datasets) - set(fMOL.keys())}"
                 datasets = self.datasets
             else:
                 datasets = list(fMOL.keys())
 
-            for dataset in tqdm(datasets, desc=f"Processing {dataset} dataset."):
-                box = fMOL[dataset]["box"]
+            for dataset in tqdm(datasets, desc=f"Processing datasets..."):
                 atnum = fMOL[dataset]["atnum"]
-                pos = fMOL[dataset]["pos"]
+                box = fMOL[dataset]["box"]
+                coord = fMOL[dataset]["coord"]
                 energy = fMOL[dataset]["energy"]
                 forces = fMOL[dataset]["forces"]
                 virial = fMOL[dataset]["virial"]
                 for confid in range(box.shape[0]):
                     data = AtomicData.from_points(
-                        pos=torch.as_tensor(pos[confid], dtype=torch.float32),
+                        pos=torch.as_tensor(coord[confid], dtype=torch.float32),
                         cell=torch.as_tensor(box[confid], dtype=torch.float32),
                         pbc=torch.tensor([True, True, True], dtype=torch.bool),
                         atom_types=torch.as_tensor(atnum, dtype=torch.int16),
                         energy=torch.as_tensor([energy[confid]], dtype=torch.float32),
                         forces=torch.as_tensor(forces[confid], dtype=torch.float32),
-                        virial=torch.as_tensor(virial[confid], dtype=torch.float32),
+                        virial=torch.as_tensor(virial[confid], dtype=torch.float32).view(-1, 3, 3),
                     )
                     data_list.append(data)
 
