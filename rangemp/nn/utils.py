@@ -29,7 +29,7 @@ def calc_weights_pbc(data: AtomicData) -> torch.Tensor:
                               reduce='mean',
                               dim=0)
     diff = scaled_pos - scaled_virt_pos[data.batch]
-    diff = diff - pbc*torch.round(diff)
+    diff = diff - pbc[data.batch]*torch.round(diff)
 
     weights = (cell[data.batch]@diff).norm(p=2, dim=1).squeeze()
     norm = scatter(weights, data.batch, reduce='max')[data.batch]
