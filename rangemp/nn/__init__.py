@@ -2,13 +2,17 @@ from .models import (
     RANGESchNet,
     StandardRANGESchNet,
     RANGEPaiNN,
-    StandardRANGEPaiNN
+    StandardRANGEPaiNN,
+    RANGEMACE,
+    StandardRANGEMACE
 )
 
 
 __all__ = [
     "RANGESchNet",
-    "RANGEPaiNN",
     "StandardRANGESchNet",
+    "RANGEPaiNN",
     "StandardRANGEPaiNN",
+    "RANGEMACE",
+    "StandardRANGEMACE",
 ]

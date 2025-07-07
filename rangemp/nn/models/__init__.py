@@ -6,6 +6,10 @@ from .painn import (
     RANGEPaiNN,
     StandardRANGEPaiNN
 )
+from .mace import (
+    RANGEMACE,
+    StandardRANGEMACE
+)
 
 
 __all__ = [
@@ -13,4 +17,6 @@ __all__ = [
     "RANGEPaiNN",
     "StandardRANGESchNet",
     "StandardRANGEPaiNN",
+    "RANGEMACE",
+    "StandardRANGEMACE",
 ]
