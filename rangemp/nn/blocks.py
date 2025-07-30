@@ -236,7 +236,7 @@ class SchnetBlock(torch.nn.Module):
                 edge_indices[1],
                 reduce='add',
                 dim=0,
-                dim_size=receivers.shape[0],
+                dim_size=receivers[0].shape[0],
                 )
 
         embedding_update = self.lin3(
