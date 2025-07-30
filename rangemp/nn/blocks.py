@@ -103,7 +103,8 @@ class AttentionBlock(torch.nn.Module):
                 (weights*V).view(-1, self.channels),
                 edge_indices[1],
                 reduce='add',
-                dim=0
+                dim=0,
+                dim_size=receivers.shape[0],
                 )
 
         return embedding
@@ -197,7 +198,8 @@ class SelfAttentionBlock(AttentionBlock):
                 regularization_weights.unsqueeze(1)*(weights*V).view(-1, self.channels),
                 edge_indices[1],
                 reduce='add',
-                dim=0
+                dim=0,
+                dim_size=receivers.shape[0],
                 )
 
         return embedding
@@ -254,7 +256,8 @@ class SchnetBlock(torch.nn.Module):
                 weights*V,
                 edge_indices[1],
                 reduce='add',
-                dim=0
+                dim=0,
+                dim_size=receivers[0].shape[0],
                 )
 
         embedding_update = self.lin3(
