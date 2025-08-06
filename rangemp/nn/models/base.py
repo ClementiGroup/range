@@ -56,7 +56,7 @@ class RANGE(torch.nn.Module):
 
     def reset_parameters(self) -> None:
         self.embedding_layer.reset_parameters()
-        self.basis.reset_parameters()
+        self.virt_embedding_layer.reset_parameters()
         for block in self.interaction_blocks:
             block.reset_parameters()
         self.output_network.reset_parameters()
