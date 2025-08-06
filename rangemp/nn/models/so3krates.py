@@ -98,10 +98,8 @@ class RANGESo3krates(RANGE):
             neighbor_list["cell_shifts"]
         )
 
-        system.edge_weights = system.edge_weights.squeeze(1)
-
         system.edge_attrs = self.basis(
-                system.edge_weights
+                system.edge_weights.squeeze(-1)
                 )
 
         sph_ij = self.sph_harmonics(edge_versors)
@@ -111,7 +109,7 @@ class RANGESo3krates(RANGE):
         return system
 
 
-class StandardRANGEPaiNN(RANGESo3krates):
+class StandardRANGESo3krates(RANGESo3krates):
     def __init__(
         self,
         num_virt_nodes: int = 1,
@@ -123,7 +121,7 @@ class StandardRANGEPaiNN(RANGESo3krates):
         cutoff: float = 3.0,
         output_channels: List[int] = [64,],
         hidden_channels: int = 132,
-        num_heads: int = 8,
+        num_heads: int = 4,
         regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
@@ -187,7 +185,7 @@ class StandardRANGEPaiNN(RANGESo3krates):
             "gb_sph_filter_features": gb_sph_filter_features,
             "n_heads": num_heads,
             "activation": activation,
-            "cutoff": cutoff,
+            "cutoff": cutoff_instance,
             "aggr": aggr,
             "epsilon": epsilon
         }
