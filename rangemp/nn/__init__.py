@@ -5,14 +5,19 @@ from .models import (
     StandardRANGEPaiNN,
     RANGESo3krates,
     StandardRANGESo3krates,
+    RANGEMACE,
+    StandardRANGEMACE
 )
 
 
 __all__ = [
     "RANGESchNet",
-    "RANGEPaiNN",
-    "RANGESo3krates",
     "StandardRANGESchNet",
+    "RANGEPaiNN",
     "StandardRANGEPaiNN",
+    "RANGESo3krates",
     "StandardRANGESo3krates",
+    "RANGEMACE",
+    "StandardRANGEMACE",
 ]
+
