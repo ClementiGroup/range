@@ -1,6 +1,7 @@
 from typing import List
 
 import torch
+from typing import Optional, Union, Dict, List, Any, Callable
 from torch_scatter import scatter, scatter_softmax
 from torch_geometric.nn.inits import glorot
 
@@ -8,6 +9,26 @@ from mlcg.nn import MLP
 from mlcg.nn._module_init import init_xavier_uniform
 from mlcg.nn.painn import PaiNNInteraction, PaiNNMixing
 from mlcg.nn.so3krates import So3kratesInteraction, So3kratesMixing
+
+from e3nn import o3
+
+try:
+    from mace.tools.scatter import scatter_sum
+
+    from mace.modules.blocks import (
+        EquivariantProductBasisBlock,
+        LinearReadoutBlock,
+        NonLinearReadoutBlock,
+    )
+
+except ImportError as e:
+    print(e)
+    print(
+        "Please install or set mace to your path before using this interface. "
+        + "To install you can either run 'pip install git+https://github.com/ACEsuit/mace.git@v0.3.12', "
+        + "or clone the repository and add it to your PYTHONPATH."
+        ""
+    )
 
 from .system import System
 
@@ -306,6 +327,7 @@ class PaiNNBlock(torch.nn.Module):
         self.mixing.reset_parameters()
 
 
+
 class So3kratesBlock(torch.nn.Module):
     def __init__(self,
                  hidden_channels: int,
@@ -420,6 +442,119 @@ class So3kratesBlock(torch.nn.Module):
             init_xavier_uniform(module)
         for module in self.residual_out_2:
             init_xavier_uniform(module)
+     
+    
+
+class MACEBlock(torch.nn.Module):
+    def __init__(
+        self,
+        interaction_cls: str,
+        node_attr_irreps: o3.Irreps,
+        node_feats_irreps: o3.Irreps,
+        edge_attrs_irrep: o3.Irreps,
+        edge_feats_irreps: o3.Irreps,
+        target_irreps: o3.Irreps,
+        hidden_irreps: Union[o3.Irreps, str],
+        correlation: int,
+        num_elements: int,
+        avg_num_neighbors: int,
+        radial_MLP: Optional[List[int]] = None,
+        cueq_config: Optional[Dict[str, Any]] = None,
+        linear_readout: bool = True,
+        gate: Optional[Callable] = None,
+        MLP_irreps: str = None,
+    ):
+        from mlcg.pl.model import get_class_from_str
+
+        super().__init__()
+
+        self.interaction = get_class_from_str(interaction_cls)(
+            node_attrs_irreps=node_attr_irreps,
+            node_feats_irreps=node_feats_irreps,
+            edge_attrs_irreps=edge_attrs_irrep,
+            edge_feats_irreps=edge_feats_irreps,
+            target_irreps=target_irreps,
+            hidden_irreps=hidden_irreps,
+            avg_num_neighbors=avg_num_neighbors,
+            radial_MLP=radial_MLP,
+            cueq_config=cueq_config,
+        )
+        use_sc = False
+        if "Residual" in interaction_cls:
+            use_sc = True
+
+        self.product = EquivariantProductBasisBlock(
+            node_feats_irreps=target_irreps,
+            target_irreps=hidden_irreps,
+            correlation=correlation,
+            num_elements=num_elements,
+            use_sc=use_sc,
+            cueq_config=cueq_config,
+        )
+
+        if linear_readout:
+            self.readout = LinearReadoutBlock(
+                hidden_irreps, o3.Irreps("1x0e"), cueq_config
+            )
+        else:
+            self.readout = NonLinearReadoutBlock(
+                hidden_irreps,
+                (1 * MLP_irreps).simplify(),
+                gate,
+                o3.Irreps("1x0e"),
+                1,
+                cueq_config,
+            )
+
+        if type(self.interaction.hidden_irreps) is str:
+            self.hidden_irreps_slices = [slice(None)]
+        else:
+            self.hidden_irreps_slices = self.interaction.hidden_irreps.slices()
+
+    def forward(
+        self,
+        senders: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_feats: torch.Tensor,
+        edge_versors: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        node_attrs: torch.Tensor,
+        batch: torch.Tensor,
+        energy_list: List[torch.Tensor],
+        *args,
+    ):
+
+        node_heads = torch.zeros_like(batch)
+        num_atoms_arange = torch.arange(batch.shape[0])  # , device=node_attrs.device)
+        num_graphs = batch.max() + 1
+
+        senders = torch.cat(senders, dim=-1)
+
+        node_feats, sc = self.interaction(
+            node_attrs=node_attrs,
+            node_feats=senders,
+            edge_attrs=edge_attrs,
+            edge_feats=edge_feats,
+            edge_index=edge_indices,
+        )
+        node_feats = self.product(node_feats=node_feats, sc=sc, node_attrs=node_attrs)
+        node_energies = self.readout(node_feats, node_heads)[
+            num_atoms_arange, node_heads
+        ]  # [n_nodes, len(heads)]
+        energy = scatter_sum(
+            src=node_energies,
+            index=batch,
+            dim=0,
+            dim_size=num_graphs,
+        )  # [n_graphs,]
+        energy_list.append(energy)
+
+        return [node_feats[:, irrs] for irrs in self.hidden_irreps_slices]
+
+    def reset_parameters(self):
+        pass
+
 
 
 class RANGEInteractionBlock(torch.nn.Module):
@@ -443,7 +578,8 @@ class RANGEInteractionBlock(torch.nn.Module):
                 system.edge_indices,
                 system.edge_weights,
                 system.edge_versors,
-                system.edge_attrs
+                system.edge_attrs,
+                **system.extra_propagation_args
                 )
 
         system.virt_embedding = self.aggregation_block(

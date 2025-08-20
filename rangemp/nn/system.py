@@ -34,6 +34,8 @@ class System:
             A tensor storing edge features for broadcast.
         regularization_weights (torch.Tensor, optional):
             A tensor storing weights for regularization.
+        extra_propagation_args: dict
+            Dictionary of eventual extra argument for propagation block.
     """
     batch: torch.Tensor = None
 
@@ -52,3 +54,4 @@ class System:
     broadcast_edge_attrs: torch.Tensor = None
 
     regularization_weights: torch.Tensor = None
+    extra_propagation_args: dict = field(default_factory=dict)
