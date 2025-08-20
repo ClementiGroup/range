@@ -6,6 +6,11 @@ from .painn import (
     RANGEPaiNN,
     StandardRANGEPaiNN
 )
+
+from .so3krates import (
+    RANGESo3krates,
+    StandardRANGESo3krates
+
 from .mace import (
     RANGEMACE,
     StandardRANGEMACE
@@ -15,8 +20,10 @@ from .mace import (
 __all__ = [
     "RANGESchNet",
     "RANGEPaiNN",
+    "RANGESo3krates",
+    "RANGEMACE",
     "StandardRANGESchNet",
     "StandardRANGEPaiNN",
-    "RANGEMACE",
+    "StandardRANGESo3krates",
     "StandardRANGEMACE",
 ]

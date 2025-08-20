@@ -3,6 +3,8 @@ from .models import (
     StandardRANGESchNet,
     RANGEPaiNN,
     StandardRANGEPaiNN,
+    RANGESo3krates,
+    StandardRANGESo3krates,
     RANGEMACE,
     StandardRANGEMACE
 )
@@ -13,6 +15,9 @@ __all__ = [
     "StandardRANGESchNet",
     "RANGEPaiNN",
     "StandardRANGEPaiNN",
+    "RANGESo3krates",
+    "StandardRANGESo3krates",
     "RANGEMACE",
     "StandardRANGEMACE",
 ]
+

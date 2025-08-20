@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from typing import Optional, Union, Dict, List, Any, Callable
 from torch_scatter import scatter, scatter_softmax
@@ -6,6 +8,7 @@ from torch_geometric.nn.inits import glorot
 from mlcg.nn import MLP
 from mlcg.nn._module_init import init_xavier_uniform
 from mlcg.nn.painn import PaiNNInteraction, PaiNNMixing
+from mlcg.nn.so3krates import So3kratesInteraction, So3kratesMixing
 
 from e3nn import o3
 
@@ -324,6 +327,124 @@ class PaiNNBlock(torch.nn.Module):
         self.mixing.reset_parameters()
 
 
+
+class So3kratesBlock(torch.nn.Module):
+    def __init__(self,
+                 hidden_channels: int,
+                 degrees: List[int],
+                 edge_attr_dim: int,
+                 cutoff: torch.nn.Module,
+                 fb_rad_filter_features: List[int],
+                 fb_sph_filter_features: List[int],
+                 gb_rad_filter_features: List[int],
+                 gb_sph_filter_features: List[int],
+                 n_heads: int = 4,
+                 activation: torch.nn.Module = torch.nn.SiLU(),
+                 parity: bool = True,
+                 **kwargs):
+        super().__init__()
+
+        self.hidden_channels = hidden_channels
+        self.degrees = degrees
+        self.parity = parity
+
+        # Total number of spherical harmonic coefficients
+        self.m_tot = sum(2 * l + 1 for l in degrees)
+
+        # Interaction block
+        self.interaction = So3kratesInteraction(
+            hidden_channels=hidden_channels,
+            degrees=degrees,
+            edge_attr_dim=edge_attr_dim,
+            cutoff=cutoff,
+            fb_rad_filter_features=fb_rad_filter_features,
+            fb_sph_filter_features=fb_sph_filter_features,
+            gb_rad_filter_features=gb_rad_filter_features,
+            gb_sph_filter_features=gb_sph_filter_features,
+            n_heads=n_heads,
+            activation=activation,
+        )
+
+        # Feature-spherical interaction
+        self.mixing = So3kratesMixing(
+            hidden_channels, self.m_tot, degrees, activation
+        )
+
+        self.x_norm = torch.nn.LayerNorm(hidden_channels)
+
+        self.residual_delta_1 = torch.nn.Sequential(
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+        )
+        self.residual_out_1 = torch.nn.Sequential(
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+        )
+
+        self.residual_delta_2 = torch.nn.Sequential(
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+        )
+        self.residual_out_2 = torch.nn.Sequential(
+            activation,
+            torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
+        )
+
+        self.reset_parameters()
+
+    def forward(self,
+                senders: torch.Tensor,
+                receivers: torch.Tensor,
+                edge_indices: torch.Tensor,
+                edge_weights: torch.Tensor,
+                edge_versors: torch.Tensor,
+                edge_attrs: torch.Tensor,
+                *args) -> torch.Tensor:
+
+        x = self.x_norm(senders[0])
+        chi = senders[1]
+
+        # Interaction block
+        x_local, chi_local = self.interaction(
+            x, chi, edge_indices, edge_attrs, edge_versors, edge_weights
+        )
+
+        # First residual connection
+        x = x + x_local
+        chi = chi + chi_local
+
+        x = self.residual_out_1(x + self.residual_delta_1(x))
+        x = self.x_norm(x)
+
+        # Feature-spherical interaction
+        delta_x, delta_chi = self.mixing(x, chi)
+
+        # Second residual connection
+        x = x + delta_x
+        chi = chi + delta_chi
+
+        x = self.residual_out_2(x + self.residual_delta_2(x))
+
+        return [x, chi]
+
+    def reset_parameters(self):
+        self.interaction.reset_parameters()
+        self.mixing.reset_parameters()
+        for module in self.residual_delta_1:
+            init_xavier_uniform(module)
+        for module in self.residual_out_1:
+            init_xavier_uniform(module)
+        for module in self.residual_delta_2:
+            init_xavier_uniform(module)
+        for module in self.residual_out_2:
+            init_xavier_uniform(module)
+     
+    
+
 class MACEBlock(torch.nn.Module):
     def __init__(
         self,
@@ -433,6 +554,7 @@ class MACEBlock(torch.nn.Module):
 
     def reset_parameters(self):
         pass
+
 
 
 class RANGEInteractionBlock(torch.nn.Module):
