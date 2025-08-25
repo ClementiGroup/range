@@ -102,7 +102,7 @@ class StandardRANGEPaiNN(RANGEPaiNN):
         cutoff: float = 3.0,
         output_channels: List[int] = [64,],
         hidden_channels: int = 128,
-        num_heads: int = 8,
+        num_virt_heads: int = 8,
         regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
@@ -143,7 +143,7 @@ class StandardRANGEPaiNN(RANGEPaiNN):
             "channels": hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_heads
+            "n_heads": num_virt_heads
         }
 
         prop_block_kwargs = {

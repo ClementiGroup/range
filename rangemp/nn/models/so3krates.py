@@ -121,8 +121,8 @@ class StandardRANGESo3krates(RANGESo3krates):
         cutoff: float = 3.0,
         output_channels: List[int] = [64,],
         hidden_channels: int = 132,
-        num_heads: int = 8,
-        num_heads_so3: int = 4,
+        num_heads: int = 4,
+        num_virt_heads: int = 8,
         regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
@@ -142,6 +142,7 @@ class StandardRANGESo3krates(RANGESo3krates):
 
         assert hidden_channels % len(degrees) == 0, "hidden_channels must be divisible by len(degrees)."
         assert hidden_channels % num_heads == 0, "hidden_channels must be divisible by num_heads."
+        assert hidden_channels % num_virt_heads == 0, "hidden_channels must be divisible by num_virt_heads."
 
         cutoff_instance = create_instance(cutoff_fn, 0.0, cutoff)
 
@@ -173,7 +174,7 @@ class StandardRANGESo3krates(RANGESo3krates):
             "channels": hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_heads
+            "n_heads": num_virt_heads
         }
 
         prop_block_kwargs = {
@@ -184,7 +185,7 @@ class StandardRANGESo3krates(RANGESo3krates):
             "fb_sph_filter_features": fb_sph_filter_features,
             "gb_rad_filter_features": gb_rad_filter_features,
             "gb_sph_filter_features": gb_sph_filter_features,
-            "n_heads": num_heads_so3,
+            "n_heads": num_heads,
             "activation": activation,
             "cutoff": cutoff_instance,
             "aggr": aggr,

@@ -203,7 +203,7 @@ class StandardRANGEMACE(RANGEMACE):
         num_virt_nodes: int = 1,
         radial_basis_fn: str = "mlcg.nn.radial_basis.GaussianBasis",
         virt_basis_dim: int = 10,
-        num_heads: int = 8,
+        num_virt_heads: int = 8,
         regularization_fn: str = "rangemp.nn.regularization.LinearReg",
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
@@ -257,7 +257,7 @@ class StandardRANGEMACE(RANGEMACE):
             "channels": hidden_channels,
             "activation": gate,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_heads,
+            "n_heads": num_virt_heads,
         }
 
         prop_block_kwargs = {
