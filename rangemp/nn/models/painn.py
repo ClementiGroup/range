@@ -8,8 +8,8 @@ from mlcg.geometry import compute_distance_vectors
 from .base import RANGE
 from ..blocks import (
     RANGEInteractionBlock,
-    AttentionBlock,
-    SelfAttentionBlock,
+    AggregationBlock,
+    BroadcastBlock,
     PaiNNBlock,
 )
 from ..system import System
@@ -101,7 +101,8 @@ class StandardRANGEPaiNN(RANGEPaiNN):
         cutoff_fn: str = 'mlcg.nn.cutoff.CosineCutoff',
         cutoff: float = 3.0,
         output_channels: List[int] = [64,],
-        hidden_channels: int = 128,
+        hidden_channels: int = 144,
+        virt_hidden_channels: int = 432,
         num_virt_heads: int = 8,
         regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
         min_num_atoms: int = 5,
@@ -136,11 +137,20 @@ class StandardRANGEPaiNN(RANGEPaiNN):
                                                   max_num_atoms=max_num_atoms)
 
         embedding_layer = torch.nn.Embedding(embedding_size, hidden_channels)
-        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, hidden_channels)
+        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, virt_hidden_channels)
         # virt_embedding_layer = torch.nn.utils.parametrizations.orthogonal(virt_embedding_layer)
 
-        attention_block_kwargs = {
-            "channels": hidden_channels,
+        aggr_block_kwargs = {
+            "in_channels": hidden_channels,
+            "out_channels": virt_hidden_channels,
+            "activation": activation,
+            "basis_dim": virt_basis_dim,
+            "n_heads": num_virt_heads
+        }
+
+        bcast_block_kwargs = {
+            "in_channels": virt_hidden_channels,
+            "out_channels": hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
             "n_heads": num_virt_heads
@@ -159,27 +169,13 @@ class StandardRANGEPaiNN(RANGEPaiNN):
         for _ in range(num_interactions):
             propagation_block = PaiNNBlock(**prop_block_kwargs)
 
-            aggregation_block = AttentionBlock(**attention_block_kwargs)
-            broadcast_block = SelfAttentionBlock(**attention_block_kwargs)
-
-            activation_block = torch.nn.Sequential(
-                    torch.nn.LayerNorm(hidden_channels),
-                    activation,
-                    )
-
-            output_block = torch.nn.Sequential(
-                    torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
-                    torch.nn.LayerNorm(hidden_channels),
-                    activation,
-                    torch.nn.Linear(hidden_channels, hidden_channels, bias=False)
-                    )
+            aggregation_block = AggregationBlock(**aggr_block_kwargs)
+            broadcast_block = BroadcastBlock(**bcast_block_kwargs)
 
             block = RANGEInteractionBlock(
                     propagation_block,
                     aggregation_block,
                     broadcast_block,
-                    activation_block,
-                    output_block
             )
             interaction_blocks.append(block)
 

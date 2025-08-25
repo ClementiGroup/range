@@ -9,8 +9,8 @@ from mlcg.nn.angular_basis.spherical_harmonics import SphericalHarmonics
 from .base import RANGE
 from ..blocks import (
     RANGEInteractionBlock,
-    AttentionBlock,
-    SelfAttentionBlock,
+    AggregationBlock,
+    BroadcastBlock,
     So3kratesBlock,
 )
 from ..system import System
@@ -120,7 +120,8 @@ class StandardRANGESo3krates(RANGESo3krates):
         cutoff_fn: str = 'mlcg.nn.cutoff.CosineCutoff',
         cutoff: float = 3.0,
         output_channels: List[int] = [64,],
-        hidden_channels: int = 132,
+        hidden_channels: int = 144,
+        virt_hidden_channels: int = 432,
         num_heads: int = 4,
         num_virt_heads: int = 8,
         regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
@@ -143,6 +144,7 @@ class StandardRANGESo3krates(RANGESo3krates):
         assert hidden_channels % len(degrees) == 0, "hidden_channels must be divisible by len(degrees)."
         assert hidden_channels % num_heads == 0, "hidden_channels must be divisible by num_heads."
         assert hidden_channels % num_virt_heads == 0, "hidden_channels must be divisible by num_virt_heads."
+        assert virt_hidden_channels % num_virt_heads == 0, "virt_hidden_channels must be divisible by num_virt_heads."
 
         cutoff_instance = create_instance(cutoff_fn, 0.0, cutoff)
 
@@ -167,11 +169,20 @@ class StandardRANGESo3krates(RANGESo3krates):
         gb_sph_filter_features = [hidden_channels // 4, hidden_channels]
 
         embedding_layer = torch.nn.Embedding(embedding_size, hidden_channels)
-        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, hidden_channels)
+        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, virt_hidden_channels)
         # virt_embedding_layer = torch.nn.utils.parametrizations.orthogonal(virt_embedding_layer)
 
-        attention_block_kwargs = {
-            "channels": hidden_channels,
+        aggr_block_kwargs = {
+            "in_channels": hidden_channels,
+            "out_channels": virt_hidden_channels,
+            "activation": activation,
+            "basis_dim": virt_basis_dim,
+            "n_heads": num_virt_heads
+        }
+
+        bcast_block_kwargs = {
+            "in_channels": virt_hidden_channels,
+            "out_channels": hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
             "n_heads": num_virt_heads
@@ -196,27 +207,13 @@ class StandardRANGESo3krates(RANGESo3krates):
         for _ in range(num_interactions):
             propagation_block = So3kratesBlock(**prop_block_kwargs)
 
-            aggregation_block = AttentionBlock(**attention_block_kwargs)
-            broadcast_block = SelfAttentionBlock(**attention_block_kwargs)
-
-            activation_block = torch.nn.Sequential(
-                    torch.nn.LayerNorm(hidden_channels),
-                    activation,
-                    )
-
-            output_block = torch.nn.Sequential(
-                    torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
-                    torch.nn.LayerNorm(hidden_channels),
-                    activation,
-                    torch.nn.Linear(hidden_channels, hidden_channels, bias=False)
-                    )
+            aggregation_block = AggregationBlock(**aggr_block_kwargs)
+            broadcast_block = BroadcastBlock(**bcast_block_kwargs)
 
             block = RANGEInteractionBlock(
                     propagation_block,
                     aggregation_block,
                     broadcast_block,
-                    activation_block,
-                    output_block
             )
             interaction_blocks.append(block)
 

@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 from typing import Optional, Union, Dict, List, Any, Callable
 from torch_scatter import scatter, scatter_softmax
@@ -33,37 +31,45 @@ except ImportError as e:
 from .system import System
 
 
-class AttentionBlock(torch.nn.Module):
-    """
-    Implements a multi-head attention mechanism for graph-based models.
-    """
-
+class AggregationBlock(torch.nn.Module):
     def __init__(self,
-                 channels: int,
+                 in_channels: int,
+                 out_channels: int,
+                 activation: torch.nn.Module,
                  n_heads: int,
                  basis_dim: int,
                  **kwargs):
         super().__init__()
 
-        if channels % n_heads != 0:
+        if in_channels % n_heads != 0:
             raise ValueError(
-                    "The number of hidden channels must be divisible by the number of heads"
+                    "The number of input attention channels must be divisible by the number of heads"
+                    )
+
+        if out_channels % n_heads != 0:
+            raise ValueError(
+                    "The number of output attention channels must be divisible by the number of heads"
                     )
 
         self.n_heads = n_heads
-        self.channels = channels
-        self.hidden_channels = channels // self.n_heads
+        self.channels = out_channels
+        self.hidden_channels = out_channels // self.n_heads
 
-        self.lin_Q = torch.nn.Linear(channels, channels, bias=False)
-        self.lin_K = torch.nn.Linear(channels, channels, bias=False)
-        self.lin_V = torch.nn.Linear(channels, channels, bias=False)
+        self.lin_Q = torch.nn.Linear(out_channels, out_channels, bias=False)
+        self.lin_K = torch.nn.Linear(in_channels, out_channels, bias=False)
+        self.lin_V = torch.nn.Linear(in_channels, out_channels, bias=False)
 
         self.activation = torch.nn.LeakyReLU()
 
-        self.attention = torch.nn.Parameter(torch.empty(1, n_heads, self.hidden_channels))
+        self.attention = torch.nn.Parameter(torch.empty(1, n_heads, out_channels // n_heads))
 
         self.basis_dim = basis_dim
-        self.lin_E = torch.nn.Linear(basis_dim, channels, bias=False)
+        self.lin_E = torch.nn.Linear(basis_dim, out_channels, bias=False)
+
+        self.output_layer = torch.nn.Sequential(
+                torch.nn.LayerNorm(out_channels),
+                activation,
+                )
 
     def forward(self,
                 senders: torch.Tensor,
@@ -110,6 +116,8 @@ class AttentionBlock(torch.nn.Module):
                 dim_size=receivers.shape[0],
                 )
 
+        embedding = self.output_layer(embedding)
+
         return embedding
 
     def reset_parameters(self):
@@ -123,25 +131,54 @@ class AttentionBlock(torch.nn.Module):
         glorot(self.attention)
 
 
-class SelfAttentionBlock(AttentionBlock):
-    """
-    Implements a self-attention mechanism, extending AttentionBlock with additional transformations.
-    """
-
+class BroadcastBlock(torch.nn.Module):
     def __init__(self,
-                 channels: int,
+                 in_channels: int,
+                 out_channels: int,
+                 activation: torch.nn.Module,
                  n_heads: int,
                  basis_dim: int,
                  **kwargs):
+        super().__init__()
 
-        super().__init__(channels, n_heads, basis_dim, **kwargs)
+        if in_channels % n_heads != 0:
+            raise ValueError(
+                    "The number of input attention channels must be divisible by the number of heads"
+                    )
+
+        if out_channels % n_heads != 0:
+            raise ValueError(
+                    "The number of output attention channels must be divisible by the number of heads"
+                    )
+
+        self.n_heads = n_heads
+        self.channels = in_channels
+        self.hidden_channels = in_channels // self.n_heads
+
+        self.lin_Q = torch.nn.Linear(out_channels, in_channels, bias=False)
+        self.lin_K = torch.nn.Linear(out_channels, in_channels, bias=False)
+        self.lin_V = torch.nn.Linear(out_channels, in_channels, bias=False)
+
+        self.activation = torch.nn.LeakyReLU()
+
+        self.attention = torch.nn.Parameter(torch.empty(1, n_heads, in_channels // n_heads))
+
+        self.basis_dim = basis_dim
+        self.lin_E = torch.nn.Linear(basis_dim, in_channels, bias=False)
 
         self.weights_K = torch.nn.Parameter(torch.empty(n_heads,
-                                                        channels//n_heads,
-                                                        channels//n_heads))
+                                                        in_channels//n_heads,
+                                                        in_channels//n_heads))
         self.weights_V = torch.nn.Parameter(torch.empty(n_heads,
-                                                        channels//n_heads,
-                                                        channels//n_heads))
+                                                        in_channels//n_heads,
+                                                        in_channels//n_heads))
+
+        self.output_layer = torch.nn.Sequential(
+                torch.nn.Linear(in_channels, in_channels, bias=False),
+                torch.nn.LayerNorm(in_channels),
+                activation,
+                torch.nn.Linear(in_channels, out_channels, bias=False)
+                )
 
     def forward(self,
                 senders: torch.Tensor,
@@ -205,12 +242,20 @@ class SelfAttentionBlock(AttentionBlock):
                 dim_size=receivers.shape[0],
                 )
 
+        embedding = self.output_layer(embedding)
+
         return embedding
 
     def reset_parameters(self):
-        super().reset_parameters()
+        init_xavier_uniform(self.lin_E)
+        init_xavier_uniform(self.lin_Q)
+        init_xavier_uniform(self.lin_K)
+        init_xavier_uniform(self.lin_V)
+        glorot(self.attention)
         glorot(self.weights_K)
         glorot(self.weights_V)
+        for layer in self.output_layer:
+            init_xavier_uniform(layer)
 
 
 class SchnetBlock(torch.nn.Module):
@@ -325,7 +370,6 @@ class PaiNNBlock(torch.nn.Module):
     def reset_parameters(self):
         self.interaction.reset_parameters()
         self.mixing.reset_parameters()
-
 
 
 class So3kratesBlock(torch.nn.Module):
@@ -556,20 +600,15 @@ class MACEBlock(torch.nn.Module):
         pass
 
 
-
 class RANGEInteractionBlock(torch.nn.Module):
     def __init__(self,
                  propagation_block: torch.nn.Module,
                  aggregation_block: torch.nn.Module,
-                 broadcast_block: torch.nn.Module,
-                 activation_block: torch.nn.Module,
-                 output_block: torch.nn.Module):
+                 broadcast_block: torch.nn.Module):
         super().__init__()
         self.propagation_block = propagation_block
         self.aggregation_block = aggregation_block
         self.broadcast_block = broadcast_block
-        self.activation_block = activation_block
-        self.output_block = output_block
 
     def forward(self, system: System) -> None:
         system.embedding = self.propagation_block(
@@ -589,10 +628,6 @@ class RANGEInteractionBlock(torch.nn.Module):
                 system.aggregation_edge_attrs
                 )
 
-        system.virt_embedding = self.activation_block(
-                system.virt_embedding
-                )
-
         system.embedding[0] = self.broadcast_block(
                 system.virt_embedding,
                 system.embedding[0],
@@ -602,13 +637,9 @@ class RANGEInteractionBlock(torch.nn.Module):
                 system.regularization_weights
                 )
 
-        system.embedding[0] = self.output_block(system.embedding[0])
-
         return None
 
     def reset_parameters(self):
         self.propagation_block.reset_parameters()
         self.aggregation_block.reset_parameters()
         self.broadcast_block.reset_parameters()
-        for block in self.output_block:
-            init_xavier_uniform(block)

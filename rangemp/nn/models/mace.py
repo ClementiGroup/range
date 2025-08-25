@@ -8,8 +8,8 @@ from mlcg.data._keys import ENERGY_KEY
 from .base import RANGE
 from ..blocks import (
     RANGEInteractionBlock,
-    AttentionBlock,
-    SelfAttentionBlock,
+    AggregationBlock,
+    BroadcastBlock,
     MACEBlock,
 )
 from ..system import System
@@ -201,6 +201,7 @@ class StandardRANGEMACE(RANGEMACE):
         radial_type: Optional[str] = "bessel",
         cueq_config: Optional[Dict[str, Any]] = None,
         num_virt_nodes: int = 1,
+        virt_hidden_channels: int = 432,
         radial_basis_fn: str = "mlcg.nn.radial_basis.GaussianBasis",
         virt_basis_dim: int = 10,
         num_virt_heads: int = 8,
@@ -253,11 +254,20 @@ class StandardRANGEMACE(RANGEMACE):
         # Consider only scalar embedding for RANGE
         hidden_channels = hidden_irreps[0].dim
 
-        attention_block_kwargs = {
-            "channels": hidden_channels,
+        aggr_block_kwargs = {
+            "in_channels": hidden_channels,
+            "out_channels": virt_hidden_channels,
             "activation": gate,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_virt_heads,
+            "n_heads": num_virt_heads
+        }
+
+        bcast_block_kwargs = {
+            "in_channels": virt_hidden_channels,
+            "out_channels": hidden_channels,
+            "activation": gate,
+            "basis_dim": virt_basis_dim,
+            "n_heads": num_virt_heads
         }
 
         prop_block_kwargs = {
@@ -294,31 +304,17 @@ class StandardRANGEMACE(RANGEMACE):
             prop_block_kwargs["interaction_cls"] = interaction_cls
             prop_block_kwargs["node_feats_irreps"] = hidden_irreps
 
-            aggregation_block = AttentionBlock(**attention_block_kwargs)
-            broadcast_block = SelfAttentionBlock(**attention_block_kwargs)
-
-            activation_block = torch.nn.Sequential(
-                torch.nn.LayerNorm(hidden_channels),
-                gate,
-            )
-
-            output_block = torch.nn.Sequential(
-                torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
-                torch.nn.LayerNorm(hidden_channels),
-                gate,
-                torch.nn.Linear(hidden_channels, hidden_channels, bias=False),
-            )
+            aggregation_block = AggregationBlock(**aggr_block_kwargs)
+            broadcast_block = BroadcastBlock(**bcast_block_kwargs)
 
             block = RANGEInteractionBlock(
                 propagation_block,
                 aggregation_block,
                 broadcast_block,
-                activation_block,
-                output_block,
             )
             interaction_blocks.append(block)
 
-        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, hidden_channels)
+        virt_embedding_layer = torch.nn.Embedding(num_virt_nodes, virt_hidden_channels)
         virt_basis_instance = create_instance(
             radial_basis_fn, cutoff=1.0, num_rbf=virt_basis_dim, trainable=False
         )
