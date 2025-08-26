@@ -62,8 +62,26 @@ class BaseMD22Dataset(InMemoryDataset):
         torch.save((datas, slices), self.processed_paths[0])
 
 
+class AcAla3NHMeDataset(BaseMD22Dataset):
+    """Ac-Ala3-NHMe dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_Ac-Ala3-NHMe.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_Ac-Ala3-NHMe.npz"]
+        return raw_set_list
+
+
 class DHADataset(BaseMD22Dataset):
-    """Dataset for Docosahexaenoic acid MD22"""
+    """Docosahexaenoic acid dataset as part of MD22."""
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
@@ -77,4 +95,94 @@ class DHADataset(BaseMD22Dataset):
     def raw_file_names(self):
         """Return a list of local downloaded files processed to create the dataset."""
         raw_set_list = ["md22_DHA.npz"]
+        return raw_set_list
+
+
+class StachyoseDataset(BaseMD22Dataset):
+    """Stachyose dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_stachyose.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_stachyose.npz"]
+        return raw_set_list
+
+
+class ATATDataset(BaseMD22Dataset):
+    """DNA base pair (AT-AT) dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_AT-AT.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_AT-AT.npz"]
+        return raw_set_list
+
+
+class ATATCGCGDataset(BaseMD22Dataset):
+    """DNA base pair (AT-AT-CG-CG) dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_AT-AT-CG-CG.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_AT-AT-CG-CG.npz"]
+        return raw_set_list
+
+
+class BuckyballCatcherDataset(BaseMD22Dataset):
+    """Buckyball catcher dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_buckyball-catcher.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_buckyball-catcher.npz"]
+        return raw_set_list
+
+
+class DoubleWallNanotubeDataset(BaseMD22Dataset):
+    """Double wall nanotube dataset as part of MD22."""
+
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    def download(self):
+        """Download the datas and store them in self.raw_dir directory"""
+        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_double-walled_nanotube.npz"
+        download_url(url_set, self.raw_dir)
+
+    @property
+    def raw_file_names(self):
+        """Return a list of local downloaded files processed to create the dataset."""
+        raw_set_list = ["md22_double-walled_nanotube.npz"]
         return raw_set_list
