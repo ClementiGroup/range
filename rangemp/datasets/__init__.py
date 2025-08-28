@@ -11,7 +11,7 @@ from .materialscloud import (
 )
 from .md22 import DHADataset
 from .water import MBPolDataset
-
+from .dimers import DimersDataset
 
 __all__ = [
     "AQMgasDataset",
@@ -23,4 +23,5 @@ __all__ = [
     "NaClDataset",
     "DHADataset",
     "MBPolDataset",
+    "DimersDataset",
 ]
