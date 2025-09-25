@@ -46,7 +46,7 @@ class DimersDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         """List of default processed files."""
-        return ["data.pt"]
+        return ["data.pt", "atomic_enrgy.pt"]
 
     @staticmethod
     def iterate_extended_xyz(file_path):
@@ -132,10 +132,43 @@ class DimersDataset(InMemoryDataset):
                 data_list.append(data)
 
         return data_list
+    
+    def fit_and_subtract_atomic_charges(self, data_list):
+        """Fit and subtract atomic contributions to the energies in the dataset."""
+        from sklearn.linear_model import LinearRegression
+
+        # Prepare data for regression
+        atom_types = []
+        energies = []
+        for data in data_list:
+            atom_count = torch.bincount(data.atom_types, minlength=len(self._mapping) + 1)[1:]
+            atom_types.append(atom_count.numpy())
+            energies.append(data.energy.item())
+
+        X = torch.tensor(atom_types, dtype=torch.float32)
+        y = torch.tensor(energies, dtype=torch.float32).view(-1, 1)
+
+        # Fit linear regression model
+        model = LinearRegression(fit_intercept=False)
+        model.fit(X.numpy(), y.numpy())
+        atomic_energies = model.coef_.flatten()
+
+        # Subtract atomic contributions
+        for idx, data in enumerate(data_list):
+            atomic_contribution = sum(
+                atomic_energies[i] * atom_types[idx][i] for i in range(len(atomic_energies))
+            )
+            data.energy -= atomic_contribution
+
+        return data_list, atomic_energies
 
     def process(self):
+        print("Creating data list from raw files...")
         data_list = self.create_data_list()
+        print("Fitting and subtracting atomic contributions...")
+        data_list, atomic_energies = self.fit_and_subtract_atomic_charges(data_list)
 
         # Store data as .pt file
         datas, slices = self.collate(data_list)
         torch.save((datas, slices), self.processed_paths[0])
+        torch.save(atomic_energies, self.processed_paths[1])
