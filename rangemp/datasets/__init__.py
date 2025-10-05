@@ -1,17 +1,21 @@
 from .aqm import (
     AQMgasDataset,
-    AQMsolDataset
+    AQMsolDataset,
 )
 from .qm7x import QM7XDataset
 from .materialscloud import (
     AgClusterDataset,
     AuMgODataset,
     CarbonChainDataset,
-    NaClDataset
+    NaClDataset,
 )
 from .md22 import DHADataset
 from .water import MBPolDataset
 from .dimers import DimersDataset
+from .efa import (
+    CumuleneDataset,
+    Sn2Dataset,
+)
 
 __all__ = [
     "AQMgasDataset",
@@ -24,4 +28,6 @@ __all__ = [
     "DHADataset",
     "MBPolDataset",
     "DimersDataset",
+    "CumuleneDataset",
+    "Sn2Dataset",
 ]

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import re
 import os
@@ -14,9 +15,9 @@ class DimersDataset(InMemoryDataset):
 
     _mapping = {
         "H": 1,
-        "C": 2,
-        "N": 3,
-        "O": 4,
+        "C": 6,
+        "N": 7,
+        "O": 8,
     }
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
@@ -110,6 +111,8 @@ class DimersDataset(InMemoryDataset):
                 }
 
     def create_data_list(self):
+        atom_energy = {1:  -16.3878, 6: -1037.1395, 7: -1489.3353, 8: -2048.7069}
+
         data_list = []
         for filename in self.raw_file_names:
             filepath = os.path.join(self.raw_dir, filename)
@@ -117,58 +120,33 @@ class DimersDataset(InMemoryDataset):
                 enumerate(self.iterate_extended_xyz(filepath)),
                 desc=f"Processing structures {filename}...",
             ):
+
+                pos = structure["positions"]
+                atom_types = [self._mapping[el] for el in structure["elements"]]
+                energy = structure["metadata"].get("energy")
+                forces = structure["forces"]
+                pbc = structure["pbc"]
+                cell = structure["cell"]
+
+                shift = np.sum([atom_energy[k] for k in atom_types])
+                energy -= shift
+
                 data = AtomicData.from_points(
-                    pos=structure["positions"],
-                    atom_types=torch.tensor(
-                        [self._mapping[el] for el in structure["elements"]]
-                    ),
-                    energy=torch.tensor(
-                        [structure["metadata"].get("energy")], dtype=torch.float32
-                    ),
-                    forces=structure["forces"],
-                    pbc=structure["pbc"],
-                    cell=structure["cell"],
+                    pos=pos,
+                    atom_types=torch.tensor(atom_types),
+                    energy=torch.tensor([energy], dtype=torch.float32),
+                    forces=forces,
+                    pbc=pbc,
+                    cell=cell,
                 )
                 data_list.append(data)
 
         return data_list
-    
-    def fit_and_subtract_atomic_charges(self, data_list):
-        """Fit and subtract atomic contributions to the energies in the dataset."""
-        from sklearn.linear_model import LinearRegression
-
-        # Prepare data for regression
-        atom_types = []
-        energies = []
-        for data in data_list:
-            atom_count = torch.bincount(data.atom_types, minlength=len(self._mapping) + 1)[1:]
-            atom_types.append(atom_count.numpy())
-            energies.append(data.energy.item())
-
-        X = torch.tensor(atom_types, dtype=torch.float32)
-        y = torch.tensor(energies, dtype=torch.float32).view(-1, 1)
-
-        # Fit linear regression model
-        model = LinearRegression(fit_intercept=False)
-        model.fit(X.numpy(), y.numpy())
-        atomic_energies = model.coef_.flatten()
-
-        # Subtract atomic contributions
-        for idx, data in enumerate(data_list):
-            atomic_contribution = sum(
-                atomic_energies[i] * atom_types[idx][i] for i in range(len(atomic_energies))
-            )
-            data.energy -= atomic_contribution
-
-        return data_list, atomic_energies
 
     def process(self):
         print("Creating data list from raw files...")
         data_list = self.create_data_list()
-        print("Fitting and subtracting atomic contributions...")
-        data_list, atomic_energies = self.fit_and_subtract_atomic_charges(data_list)
 
         # Store data as .pt file
         datas, slices = self.collate(data_list)
         torch.save((datas, slices), self.processed_paths[0])
-        torch.save(atomic_energies, self.processed_paths[1])

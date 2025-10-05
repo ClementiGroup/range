@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 from torch_geometric.data import InMemoryDataset, extract_gz, extract_tar
 
@@ -57,6 +58,16 @@ class MaterialsCloudDataset(InMemoryDataset):
                        'Na': 11, 'Mg': 12, 'Al': 13,
                        'Cl': 17, 'Ag': 47, 'Au': 79}
 
+        atom_energy = {1: -9.29107507032097,
+                       6: -1036.5461224721375,
+                       8: -18599.43617104475,
+                       11: -4417.07609365649,
+                       12: -8721.75974245582,
+                       13: -9877.676428588728,
+                       17: -12516.880649933015,
+                       47: -146385.11440723907,
+                       79: -688.8680063349827}
+
         data = None
 
         positions = []
@@ -90,6 +101,9 @@ class MaterialsCloudDataset(InMemoryDataset):
 
             idx += 1
             line = lines[idx].strip()
+
+        shift = np.sum([atom_energy[k] for k in atom_types])/27.211386245981  # Convert eV to Hartree
+        total_energy -= shift
 
         data = AtomicData.from_points(
             pos=torch.as_tensor(positions, dtype=torch.float32),
