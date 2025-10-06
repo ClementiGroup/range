@@ -10,7 +10,12 @@ from mlcg.data import AtomicData
 
 
 class QM7XDataset(InMemoryDataset):
-    """Extractor for the QM7X dataset described in https://doi.org/10.1038/s41597-021-00812-2"""
+    """Extractor for the QM7X dataset described in https://doi.org/10.1038/s41597-021-00812-2.
+    Units used in the dataset are:
+        - pos: [A]
+        - forces: [eV/A]
+        - energy: [eV]
+    """
 
     # Set names of reference dataset extracted
     set_ids = ["1000", "2000", "3000", "4000", "5000", "6000", "7000", "8000"]

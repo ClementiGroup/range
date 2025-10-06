@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+from tqdm import tqdm
 from torch_geometric.data import InMemoryDataset, extract_zip
 
 from mlcg.utils import download_url
@@ -8,7 +9,12 @@ from mlcg.data import AtomicData
 
 
 class EFADataset(InMemoryDataset):
-    """General base extractor for the EFA dataset described in https://doi.org/10.48550/arXiv.2412.08541"""
+    """General base extractor for the EFA dataset described in https://doi.org/10.48550/arXiv.2412.08541.
+    For all EFA datasets units are
+        - pos: [A]
+        - forces: [eV/A]
+        - energy: [eV]
+    """
 
     def __init__(self,
                  root,
@@ -40,7 +46,7 @@ class EFADataset(InMemoryDataset):
         base_dataset_path = os.path.join(self.root, 'raw', self.raw_file_names[0])
         print(base_dataset_path)
         df = np.load(base_dataset_path)
-        for idx in range(df['positions'].shape[0]):
+        for idx in tqdm(range(df['positions'].shape[0])):
             data = self.parse_structure(df, idx)
             if data is not None:
                 data_list.append(data)

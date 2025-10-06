@@ -11,7 +11,12 @@ from mlcg.data import AtomicData
 
 
 class DimersDataset(InMemoryDataset):
-    """General base extractor for the Dimers dataset used in LODE https://doi.org/10.1038/s41597-024-03521-8"""
+    """General base extractor for the Dimers dataset used in LODE https://doi.org/10.1038/s41597-024-03521-8.
+    Units used in the dataset are:
+        - pos: [A]
+        - forces: [eV/A]
+        - energy: [eV]
+    """
 
     _mapping = {
         "H": 1,
@@ -19,6 +24,7 @@ class DimersDataset(InMemoryDataset):
         "N": 7,
         "O": 8,
     }
+    _atom_energy = {1: -16.3878, 6: -1037.1395, 7: -1489.3353, 8: -2048.7069}
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
@@ -94,11 +100,9 @@ class DimersDataset(InMemoryDataset):
                 if metadata.get("Lattice") is None:
                     lattice = torch.eye(3, dtype=torch.float32)
                 else:
-                    lattice = (
-                        torch.tensor(
-                            [float(id) for id in metadata.get("Lattice").split(" ")],
-                            dtype=torch.float32,
-                        )
+                    lattice = torch.tensor(
+                        [float(id) for id in metadata.get("Lattice").split(" ")],
+                        dtype=torch.float32,
                     )
 
                 yield {
@@ -111,8 +115,6 @@ class DimersDataset(InMemoryDataset):
                 }
 
     def create_data_list(self):
-        atom_energy = {1:  -16.3878, 6: -1037.1395, 7: -1489.3353, 8: -2048.7069}
-
         data_list = []
         for filename in self.raw_file_names:
             filepath = os.path.join(self.raw_dir, filename)
@@ -128,7 +130,7 @@ class DimersDataset(InMemoryDataset):
                 pbc = structure["pbc"]
                 cell = structure["cell"]
 
-                shift = np.sum([atom_energy[k] for k in atom_types])
+                shift = np.sum([self._atom_energy[k] for k in atom_types])
                 energy -= shift
 
                 data = AtomicData.from_points(

@@ -9,7 +9,13 @@ from mlcg.data import AtomicData
 
 
 class BaseMD22Dataset(InMemoryDataset):
-    """Base class for extract data from the MD22 dataset"""
+    """Base class for extract data from the MD22 dataset.
+    Units used in all the MD22 datasets are:
+        - pos: [A]
+        - forces: [kcal/mol/A]
+        - energy: [kcal/mol]
+    
+    """
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)

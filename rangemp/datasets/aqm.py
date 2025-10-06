@@ -10,7 +10,12 @@ from mlcg.data import AtomicData
 
 
 class AQMBASEDataset(InMemoryDataset):
-    """General base extractor for the AQM dataset described in https://doi.org/10.1038/s41597-024-03521-8"""
+    """General base extractor for the AQM dataset described in https://doi.org/10.1038/s41597-024-03521-8.
+    Units used in the dataset are:
+        - pos: [A]
+        - forces: [eV/A]
+        - energy: [eV]
+    """
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)

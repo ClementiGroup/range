@@ -8,7 +8,15 @@ from mlcg.data import AtomicData
 
 
 class MaterialsCloudDataset(InMemoryDataset):
-    """General base extractor for the MaterialsCloud dataset described in https://doi.org/10.1038/s41467-020-20427-2"""
+    """General base extractor for the MaterialsCloud dataset described in https://doi.org/10.1038/s41467-020-20427-2.
+    For all Materials Cloud datasets units are
+        - pos: [A]
+        - forces: [eV/A]
+        - energy: [eV]
+
+    """
+    _hartree_to_ev = 27.2114079527
+    _bohr_to_ang = 0.529177249
 
     def __init__(self,
                  root,
@@ -54,19 +62,20 @@ class MaterialsCloudDataset(InMemoryDataset):
         return data_list
 
     def parse_structure(self, lines, start_idx):
-        element_map = { 'H':  1,  'C':  6,  'O':  8,
-                       'Na': 11, 'Mg': 12, 'Al': 13,
-                       'Cl': 17, 'Ag': 47, 'Au': 79}
-
+        element_map = { 'H':  1,  'C':  2,  'O':  3,
+                       'Na': 4, 'Mg': 5, 'Al': 6,
+                       'Cl': 7, 'Ag': 8, 'Au': 9}
+        
+        # Atomic energy provided in eV
         atom_energy = {1: -9.29107507032097,
-                       6: -1036.5461224721375,
-                       8: -18599.43617104475,
-                       11: -4417.07609365649,
-                       12: -8721.75974245582,
-                       13: -9877.676428588728,
-                       17: -12516.880649933015,
-                       47: -146385.11440723907,
-                       79: -688.8680063349827}
+                       2: -1036.5461224721375,
+                       3: -18599.43617104475,
+                       4: -4417.07609365649,
+                       5: -8721.75974245582,
+                       6: -9877.676428588728,
+                       7: -12516.880649933015,
+                       8: -146385.11440723907,
+                       9: -688.8680063349827}
 
         data = None
 
@@ -84,17 +93,17 @@ class MaterialsCloudDataset(InMemoryDataset):
         while line != 'end':
             if line.startswith('lattice'):
                 parts = line.split()
-                cell_vec.append([float(parts[1]), float(parts[2]), float(parts[3])])
+                cell_vec.append([float(parts[1])*self._bohr_to_ang, float(parts[2])*self._bohr_to_ang, float(parts[3])*self._bohr_to_ang])
             elif line.startswith('atom'):
                 parts = line.split()
-                positions.append([float(parts[1]), float(parts[2]), float(parts[3])])
+                positions.append([float(parts[1])*self._bohr_to_ang, float(parts[2])*self._bohr_to_ang, float(parts[3])*self._bohr_to_ang])
                 atom_types.append(element_map[parts[4]])
                 atom_charges.append(float(parts[5]))
-                atom_energies.append(float(parts[6]))
-                forces.append([float(parts[7]), float(parts[8]), float(parts[9])])
+                atom_energies.append(float(parts[6])*self._hartree_to_ev)
+                forces.append([float(parts[7])*self._hartree_to_ev/self._bohr_to_ang, float(parts[8])*self._hartree_to_ev/self._bohr_to_ang, float(parts[9])*self._hartree_to_ev/self._bohr_to_ang])
             elif line.startswith('energy'):
                 parts = line.split()
-                total_energy = float(parts[1])
+                total_energy = float(parts[1])*self._hartree_to_ev
             elif line.startswith('charge'):
                 parts = line.split()
                 total_charge = float(parts[1])
@@ -102,18 +111,27 @@ class MaterialsCloudDataset(InMemoryDataset):
             idx += 1
             line = lines[idx].strip()
 
-        shift = np.sum([atom_energy[k] for k in atom_types])/27.211386245981  # Convert eV to Hartree
+        shift = np.sum([atom_energy[k] for k in atom_types])
         total_energy -= shift
 
-        data = AtomicData.from_points(
-            pos=torch.as_tensor(positions, dtype=torch.float32),
-            cell=torch.as_tensor(cell_vec, dtype=torch.float32),
-            pbc=torch.as_tensor([True, True, True], dtype=torch.bool),
-            atom_types=torch.as_tensor(atom_types),
-            energy=torch.as_tensor([total_energy], dtype=torch.float32),
-            forces=torch.as_tensor(forces, dtype=torch.float32),
-            charges=torch.as_tensor([total_charge], dtype=torch.float32),
-        )
+        if not cell_vec:
+            data = AtomicData.from_points(
+                pos=torch.as_tensor(positions, dtype=torch.float32),
+                atom_types=torch.as_tensor(atom_types),
+                energy=torch.as_tensor([total_energy], dtype=torch.float32),
+                forces=torch.as_tensor(forces, dtype=torch.float32),
+                charges=torch.as_tensor([total_charge], dtype=torch.float32),
+            )
+        else:
+            data = AtomicData.from_points(
+                pos=torch.as_tensor(positions, dtype=torch.float32),
+                cell=torch.as_tensor(cell_vec, dtype=torch.float32),
+                pbc=torch.as_tensor([True, True, True], dtype=torch.bool),
+                atom_types=torch.as_tensor(atom_types),
+                energy=torch.as_tensor([total_energy], dtype=torch.float32),
+                forces=torch.as_tensor(forces, dtype=torch.float32),
+                charges=torch.as_tensor([total_charge], dtype=torch.float32),
+            )
 
         return data, idx
 
