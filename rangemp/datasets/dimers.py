@@ -20,11 +20,11 @@ class DimersDataset(InMemoryDataset):
 
     _mapping = {
         "H": 1,
-        "C": 6,
-        "N": 7,
-        "O": 8,
+        "C": 2,
+        "N": 3,
+        "O": 4,
     }
-    _atom_energy = {1: -16.3878, 6: -1037.1395, 7: -1489.3353, 8: -2048.7069}
+    _atom_energy = {1: -16.3878, 2: -1037.1395, 3: -1489.3353, 4: -2048.7069}
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
