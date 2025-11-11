@@ -38,9 +38,9 @@ class QM7XDataset(InMemoryDataset):
         pre_filter=None,
     ):
         super().__init__(root, transform, pre_transform, pre_filter)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
         if load_properties:
-            self.properties = np.load(self.processed_paths[1])
+            self.properties = np.load(self.processed_paths[1], weights_only=False)
 
     def set_temperature(self, temperature: float):
         """Set temperature for the dataset. Expected temperature in K"""
