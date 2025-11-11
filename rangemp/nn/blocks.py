@@ -1,6 +1,7 @@
 import torch
 from typing import Optional, Union, Dict, List, Any, Callable
-from torch_scatter import scatter, scatter_softmax
+from torch_scatter import scatter_softmax
+from torch_geometric.utils import scatter
 from torch_geometric.nn.inits import glorot
 
 from mlcg.nn import MLP
@@ -29,6 +30,10 @@ except ImportError as e:
     )
 
 from .system import System
+
+@torch.compiler.disable
+def safe_scatter_softmax(*args, **kwargs):
+    return scatter_softmax(*args, **kwargs)
 
 
 class AggregationBlock(torch.nn.Module):
@@ -101,7 +106,7 @@ class AggregationBlock(torch.nn.Module):
                     (Q + K + E).view(-1, self.n_heads, self.hidden_channels)
                     ),
                 dim=2)
-        weights = scatter_softmax(weights,
+        weights = safe_scatter_softmax(weights,
                                   edge_indices[1],
                                   dim=0)
         weights = weights.unsqueeze(-1)
@@ -226,7 +231,7 @@ class BroadcastBlock(torch.nn.Module):
                     (Q + K + E).view(-1, self.n_heads, self.hidden_channels)
                     ),
                 dim=2)
-        weights = scatter_softmax(weights,
+        weights = safe_scatter_softmax(weights,
                                   edge_indices[1],
                                   dim=0)
 
