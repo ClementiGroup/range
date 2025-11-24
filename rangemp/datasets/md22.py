@@ -14,7 +14,7 @@ class BaseMD22Dataset(InMemoryDataset):
         - pos: [A]
         - forces: [kcal/mol/A]
         - energy: [kcal/mol]
-    
+
     """
 
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
@@ -76,7 +76,9 @@ class AcAla3NHMeDataset(BaseMD22Dataset):
 
     def download(self):
         """Download the datas and store them in self.raw_dir directory"""
-        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_Ac-Ala3-NHMe.npz"
+        url_set = (
+            "http://www.quantum-machine.org/gdml/repo/datasets/md22_Ac-Ala3-NHMe.npz"
+        )
         download_url(url_set, self.raw_dir)
 
     @property
@@ -148,7 +150,9 @@ class ATATCGCGDataset(BaseMD22Dataset):
 
     def download(self):
         """Download the datas and store them in self.raw_dir directory"""
-        url_set = "http://www.quantum-machine.org/gdml/repo/datasets/md22_AT-AT-CG-CG.npz"
+        url_set = (
+            "http://www.quantum-machine.org/gdml/repo/datasets/md22_AT-AT-CG-CG.npz"
+        )
         download_url(url_set, self.raw_dir)
 
     @property

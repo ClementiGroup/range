@@ -259,7 +259,7 @@ class StandardRANGEMACE(RANGEMACE):
             "out_channels": virt_hidden_channels,
             "activation": gate,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_virt_heads
+            "n_heads": num_virt_heads,
         }
 
         bcast_block_kwargs = {
@@ -267,7 +267,7 @@ class StandardRANGEMACE(RANGEMACE):
             "out_channels": hidden_channels,
             "activation": gate,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_virt_heads
+            "n_heads": num_virt_heads,
         }
 
         prop_block_kwargs = {

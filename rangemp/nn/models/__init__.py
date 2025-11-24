@@ -1,21 +1,9 @@
-from .schnet import (
-    RANGESchNet,
-    StandardRANGESchNet
-)
-from .painn import (
-    RANGEPaiNN,
-    StandardRANGEPaiNN
-)
+from .schnet import RANGESchNet, StandardRANGESchNet
+from .painn import RANGEPaiNN, StandardRANGEPaiNN
 
-from .so3krates import (
-    RANGESo3krates,
-    StandardRANGESo3krates
-)
+from .so3krates import RANGESo3krates, StandardRANGESo3krates
 
-from .mace import (
-    RANGEMACE,
-    StandardRANGEMACE
-)
+from .mace import RANGEMACE, StandardRANGEMACE
 
 
 __all__ = [

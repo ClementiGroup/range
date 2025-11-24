@@ -37,6 +37,7 @@ def _get_canonical_key(reduce: str) -> str:
     }
     return _mapping_sets[reduce.lower()]
 
+
 class SafeScatterMax(torch.autograd.Function):
     @staticmethod
     def forward(ctx, src, index, dim=0, dim_size=None):
@@ -59,7 +60,7 @@ class SafeScatterMax(torch.autograd.Function):
         # Identify which src positions contributed to the max
         mask = (src == out.index_select(dim, index)).float()
 
-        # If multiple maxima exist, split gradients evenly 
+        # If multiple maxima exist, split gradients evenly
         count = torch.zeros_like(out).index_add(dim, index, mask)
         count = count.index_select(dim, index).clamp(min=1)
         grad_src = mask * (grad_output.index_select(dim, index) / count)
@@ -79,7 +80,7 @@ class SafeScatterMin(torch.autograd.Function):
             dim_size = int(index.max()) + 1
         out_shape = list(src.shape)
         out_shape[dim] = dim_size
-        
+
         out = initialize_tensor_like(src, out_shape, fill_value=float("+inf"))
         out = out.index_reduce(dim, index, src, "amin", include_self=False)
         ctx.save_for_backward(src, index, out)
@@ -93,7 +94,7 @@ class SafeScatterMin(torch.autograd.Function):
         # Identify which src positions contributed to the max
         mask = (src == out.index_select(dim, index)).float()
 
-        # If multiple maxima exist, split gradients evenly 
+        # If multiple maxima exist, split gradients evenly
         count = torch.zeros_like(out).index_add(dim, index, mask)
         count = count.index_select(dim, index).clamp(min=1)
         grad_src = mask * (grad_output.index_select(dim, index) / count)
@@ -156,7 +157,7 @@ def scatter(
             reduce,
             include_self=False,
         )
-    
+
 
 def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
     if dim < 0:

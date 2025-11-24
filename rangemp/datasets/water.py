@@ -34,9 +34,7 @@ class MBPolDataset(InMemoryDataset):
             set_path = os.path.join(self.raw_dir, filename)
             if not os.path.exists(set_path):
                 raise FileExistsError(
-                    (
-                        f"Set {filename} is not downloaded in the raw folder. "
-                    )
+                    (f"Set {filename} is not downloaded in the raw folder. ")
                 )
 
     @property
@@ -59,7 +57,9 @@ class MBPolDataset(InMemoryDataset):
 
             # get IDs of HDF5 files and loop through
             if self.datasets:
-                assert(set(self.datasets) < set(fMOL.keys())), F"One or more datasets not present in the datafile:\n{set(self.datasets) - set(fMOL.keys())}"
+                assert set(self.datasets) < set(
+                    fMOL.keys()
+                ), f"One or more datasets not present in the datafile:\n{set(self.datasets) - set(fMOL.keys())}"
                 datasets = self.datasets
             else:
                 datasets = list(fMOL.keys())
@@ -79,7 +79,9 @@ class MBPolDataset(InMemoryDataset):
                         atom_types=torch.as_tensor(atnum, dtype=torch.int32),
                         energy=torch.as_tensor([energy[confid]], dtype=torch.float32),
                         forces=torch.as_tensor(forces[confid], dtype=torch.float32),
-                        virial=torch.as_tensor(virial[confid], dtype=torch.float32).view(-1, 3, 3),
+                        virial=torch.as_tensor(
+                            virial[confid], dtype=torch.float32
+                        ).view(-1, 3, 3),
                     )
                     data_list.append(data)
 

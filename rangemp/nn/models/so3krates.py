@@ -20,31 +20,35 @@ from ...utils import create_instance
 class RANGESo3krates(RANGE):
     name: Final[str] = "RANGESo3krates"
 
-    def __init__(self,
-                 embedding_layer: torch.nn.Module,
-                 virt_embedding_layer: torch.nn.Module,
-                 interaction_blocks: List[torch.nn.Module],
-                 basis_instance: torch.nn.Module,
-                 cutoff: float,
-                 num_virt_nodes: int,
-                 virt_basis_instance: torch.nn.Module,
-                 regularization_instance: torch.nn.Module,
-                 layer_norm: torch.nn.Module,
-                 output_network: torch.nn.Module,
-                 degrees: List[int],
-                 max_num_neighbors: int,
-                 normalize_sph: bool):
-        super().__init__(embedding_layer,
-                         virt_embedding_layer,
-                         interaction_blocks,
-                         basis_instance,
-                         cutoff,
-                         num_virt_nodes,
-                         virt_basis_instance,
-                         regularization_instance,
-                         layer_norm,
-                         output_network,
-                         max_num_neighbors)
+    def __init__(
+        self,
+        embedding_layer: torch.nn.Module,
+        virt_embedding_layer: torch.nn.Module,
+        interaction_blocks: List[torch.nn.Module],
+        basis_instance: torch.nn.Module,
+        cutoff: float,
+        num_virt_nodes: int,
+        virt_basis_instance: torch.nn.Module,
+        regularization_instance: torch.nn.Module,
+        layer_norm: torch.nn.Module,
+        output_network: torch.nn.Module,
+        degrees: List[int],
+        max_num_neighbors: int,
+        normalize_sph: bool,
+    ):
+        super().__init__(
+            embedding_layer,
+            virt_embedding_layer,
+            interaction_blocks,
+            basis_instance,
+            cutoff,
+            num_virt_nodes,
+            virt_basis_instance,
+            regularization_instance,
+            layer_norm,
+            output_network,
+            max_num_neighbors,
+        )
 
         self.degrees = degrees
         self.max_num_neighbors = max_num_neighbors
@@ -62,20 +66,20 @@ class RANGESo3krates(RANGE):
         dtype = data.pos.dtype
 
         if not hasattr(data, "batch"):
-            data.batch = torch.zeros(data.pos.shape[0],
-                                     dtype=torch.long,
-                                     device=device)
+            data.batch = torch.zeros(data.pos.shape[0], dtype=torch.long, device=device)
 
         system = System()
 
-        system.embedding.append(self.embedding_layer(data.atom_types))  # (n_atoms, hidden_channels)
+        system.embedding.append(
+            self.embedding_layer(data.atom_types)
+        )  # (n_atoms, hidden_channels)
 
         # Initialize spherical harmonics features. They can also be initalized with neighbor dependent embeddings
         system.embedding.append(
-                torch.zeros(
-                    (system.embedding[0].shape[0], self.m_tot), device=device, dtype=dtype
-                    )
-                )
+            torch.zeros(
+                (system.embedding[0].shape[0], self.m_tot), device=device, dtype=dtype
+            )
+        )
 
         system.batch = data.batch
 
@@ -85,26 +89,22 @@ class RANGESo3krates(RANGE):
 
         if not nl_goodness:
             neighbor_list = self.neighbor_list(
-                    self.name,
-                    data,
-                    self.cutoff,
-                    self.max_num_neighbors)[self.name]
+                self.name, data, self.cutoff, self.max_num_neighbors
+            )[self.name]
 
         system.edge_indices = neighbor_list["index_mapping"]
 
         system.edge_weights, edge_versors = compute_distance_vectors(
-            data.pos,
-            system.edge_indices,
-            neighbor_list["cell_shifts"]
+            data.pos, system.edge_indices, neighbor_list["cell_shifts"]
         )
 
-        system.edge_attrs = self.basis(
-                system.edge_weights.squeeze(-1)
-                )
+        system.edge_attrs = self.basis(system.edge_weights.squeeze(-1))
 
         sph_ij = self.sph_harmonics(edge_versors)
         # Concatenate only the required degrees
-        system.edge_versors = torch.cat([sph_ij[l] for l in self.degrees], dim=-1)  # (n_pairs, sum_l 2l + 1 = m_tot)
+        system.edge_versors = torch.cat(
+            [sph_ij[l] for l in self.degrees], dim=-1
+        )  # (n_pairs, sum_l 2l + 1 = m_tot)
 
         return system
 
@@ -113,18 +113,20 @@ class StandardRANGESo3krates(RANGESo3krates):
     def __init__(
         self,
         num_virt_nodes: int = 1,
-        radial_basis_fn: str = 'mlcg.nn.radial_basis.GaussianBasis',
+        radial_basis_fn: str = "mlcg.nn.radial_basis.GaussianBasis",
         basis_dim: int = 128,
         virt_basis_dim: int = 10,
         edge_dim: int = 128,
-        cutoff_fn: str = 'mlcg.nn.cutoff.CosineCutoff',
+        cutoff_fn: str = "mlcg.nn.cutoff.CosineCutoff",
         cutoff: float = 3.0,
-        output_channels: List[int] = [64,],
+        output_channels: List[int] = [
+            64,
+        ],
         hidden_channels: int = 144,
         virt_hidden_channels: int = 432,
         num_heads: int = 4,
         num_virt_heads: int = 8,
-        regularization_fn: str = 'rangemp.nn.regularization.LinearReg',
+        regularization_fn: str = "rangemp.nn.regularization.LinearReg",
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
         embedding_size: int = 100,
@@ -137,31 +139,37 @@ class StandardRANGESo3krates(RANGESo3krates):
         epsilon: float = 1e-8,
     ):
         if num_interactions < 1:
-            raise ValueError(
-                "At least one interaction block must be specified"
-                )
+            raise ValueError("At least one interaction block must be specified")
 
-        assert hidden_channels % len(degrees) == 0, "hidden_channels must be divisible by len(degrees)."
-        assert hidden_channels % num_heads == 0, "hidden_channels must be divisible by num_heads."
-        assert hidden_channels % num_virt_heads == 0, "hidden_channels must be divisible by num_virt_heads."
-        assert virt_hidden_channels % num_virt_heads == 0, "virt_hidden_channels must be divisible by num_virt_heads."
+        assert (
+            hidden_channels % len(degrees) == 0
+        ), "hidden_channels must be divisible by len(degrees)."
+        assert (
+            hidden_channels % num_heads == 0
+        ), "hidden_channels must be divisible by num_heads."
+        assert (
+            hidden_channels % num_virt_heads == 0
+        ), "hidden_channels must be divisible by num_virt_heads."
+        assert (
+            virt_hidden_channels % num_virt_heads == 0
+        ), "virt_hidden_channels must be divisible by num_virt_heads."
 
         cutoff_instance = create_instance(cutoff_fn, 0.0, cutoff)
 
-        basis_instance = create_instance(radial_basis_fn,
-                                         cutoff=cutoff_instance,
-                                         num_rbf=basis_dim,
-                                         trainable=False)
+        basis_instance = create_instance(
+            radial_basis_fn, cutoff=cutoff_instance, num_rbf=basis_dim, trainable=False
+        )
 
-        virt_basis_instance = create_instance(radial_basis_fn,
-                                              cutoff=1.0,
-                                              num_rbf=virt_basis_dim,
-                                              trainable=False)
+        virt_basis_instance = create_instance(
+            radial_basis_fn, cutoff=1.0, num_rbf=virt_basis_dim, trainable=False
+        )
 
-        regularization_instance = create_instance(regularization_fn,
-                                                  num_virt_nodes=num_virt_nodes,
-                                                  min_num_atoms=min_num_atoms,
-                                                  max_num_atoms=max_num_atoms)
+        regularization_instance = create_instance(
+            regularization_fn,
+            num_virt_nodes=num_virt_nodes,
+            min_num_atoms=min_num_atoms,
+            max_num_atoms=max_num_atoms,
+        )
 
         fb_rad_filter_features = [hidden_channels, hidden_channels]
         fb_sph_filter_features = [hidden_channels // 4, hidden_channels]
@@ -177,7 +185,7 @@ class StandardRANGESo3krates(RANGESo3krates):
             "out_channels": virt_hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_virt_heads
+            "n_heads": num_virt_heads,
         }
 
         bcast_block_kwargs = {
@@ -185,7 +193,7 @@ class StandardRANGESo3krates(RANGESo3krates):
             "out_channels": hidden_channels,
             "activation": activation,
             "basis_dim": virt_basis_dim,
-            "n_heads": num_virt_heads
+            "n_heads": num_virt_heads,
         }
 
         prop_block_kwargs = {
@@ -200,7 +208,7 @@ class StandardRANGESo3krates(RANGESo3krates):
             "activation": activation,
             "cutoff": cutoff_instance,
             "aggr": aggr,
-            "epsilon": epsilon
+            "epsilon": epsilon,
         }
 
         interaction_blocks = []
@@ -211,23 +219,19 @@ class StandardRANGESo3krates(RANGESo3krates):
             broadcast_block = BroadcastBlock(**bcast_block_kwargs)
 
             block = RANGEInteractionBlock(
-                    propagation_block,
-                    aggregation_block,
-                    broadcast_block,
+                propagation_block,
+                aggregation_block,
+                broadcast_block,
             )
             interaction_blocks.append(block)
 
-        output_layer_widths = (
-            [hidden_channels] + output_channels + [1]
-        )
+        output_layer_widths = [hidden_channels] + output_channels + [1]
 
         layer_norm = torch.nn.LayerNorm(hidden_channels)
 
         output_network = MLP(
-                output_layer_widths,
-                activation_func=activation,
-                last_bias=False
-                )
+            output_layer_widths, activation_func=activation, last_bias=False
+        )
 
         super().__init__(
             embedding_layer,

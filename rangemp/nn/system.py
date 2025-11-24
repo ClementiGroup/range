@@ -37,6 +37,7 @@ class System:
         extra_propagation_args: dict
             Dictionary of eventual extra argument for propagation block.
     """
+
     batch: torch.Tensor = None
 
     embedding: list[torch.Tensor] = field(default_factory=list)

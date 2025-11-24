@@ -13,7 +13,7 @@ def create_instance(class_path: str, *args, **kwargs):
     Returns:
         object: An instance of the specified class.
     """
-    module_path, class_name = class_path.rsplit('.', 1)
+    module_path, class_name = class_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
 

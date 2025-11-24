@@ -6,7 +6,7 @@ from .models import (
     RANGESo3krates,
     StandardRANGESo3krates,
     RANGEMACE,
-    StandardRANGEMACE
+    StandardRANGEMACE,
 )
 
 
@@ -20,4 +20,3 @@ __all__ = [
     "RANGEMACE",
     "StandardRANGEMACE",
 ]
-

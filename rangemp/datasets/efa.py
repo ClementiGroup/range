@@ -16,17 +16,15 @@ class EFADataset(InMemoryDataset):
         - energy: [eV]
     """
 
-    def __init__(self,
-                 root,
-                 transform=None,
-                 pre_transform=None,
-                 pre_filter=None):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     def download(self):
         """Download the data and store them in self.raw_dir directory"""
-        host_url = "https://zenodo.org/records/17130729/files/source_data.zip?download=1"
+        host_url = (
+            "https://zenodo.org/records/17130729/files/source_data.zip?download=1"
+        )
         archive_path = download_url(host_url, self.raw_dir)
         extract_zip(path=archive_path, folder=self.raw_dir)
 
@@ -43,10 +41,10 @@ class EFADataset(InMemoryDataset):
     def create_data_list(self):
         data_list = []
 
-        base_dataset_path = os.path.join(self.root, 'raw', self.raw_file_names[0])
+        base_dataset_path = os.path.join(self.root, "raw", self.raw_file_names[0])
         print(base_dataset_path)
         df = np.load(base_dataset_path)
-        for idx in tqdm(range(df['positions'].shape[0])):
+        for idx in tqdm(range(df["positions"].shape[0])):
             data = self.parse_structure(df, idx)
             if data is not None:
                 data_list.append(data)
@@ -89,10 +87,10 @@ class CumuleneDataset(EFADataset):
     def parse_structure(self, df, idx):
         data = None
 
-        pos = df['positions'][idx]
-        atom_types = df['atomic_numbers'][idx]
-        energy = df['energy'][idx]
-        forces = df['forces'][idx]
+        pos = df["positions"][idx]
+        atom_types = df["atomic_numbers"][idx]
+        energy = df["energy"][idx]
+        forces = df["forces"][idx]
 
         shift = np.sum([self.atom_energy[k] for k in atom_types])
         energy -= shift
@@ -127,10 +125,10 @@ class Sn2Dataset(EFADataset):
     def parse_structure(self, df, idx):
         data = None
 
-        pos = df['positions'][idx][df['node_mask'][idx]]
-        atom_types = df['atomic_numbers'][idx][df['node_mask'][idx]]
-        energy = df['energy'][idx]
-        forces = df['forces'][idx][df['node_mask'][idx]]
+        pos = df["positions"][idx][df["node_mask"][idx]]
+        atom_types = df["atomic_numbers"][idx][df["node_mask"][idx]]
+        energy = df["energy"][idx]
+        forces = df["forces"][idx][df["node_mask"][idx]]
 
         data = AtomicData.from_points(
             pos=torch.as_tensor(pos, dtype=torch.float32),
