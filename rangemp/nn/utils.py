@@ -1,8 +1,8 @@
 import torch
-from torch_geometric.utils import scatter
 
 from mlcg.data import AtomicData
 from typing import Optional
+from .scatter import scatter
 
 
 def calc_weights(data: AtomicData) -> torch.Tensor:
@@ -10,7 +10,7 @@ def calc_weights(data: AtomicData) -> torch.Tensor:
 
     weights = (data.pos - virt_pos[data.batch]).norm(p=2, dim=1)
     norm = scatter(weights, data.batch, reduce="max")[data.batch]
-    norm = norm + (norm == 0.0)
+    norm = torch.where(norm == 0.0, torch.ones_like(norm), norm)
     weights = weights / norm
 
     return weights
@@ -28,7 +28,7 @@ def calc_weights_pbc(data: AtomicData) -> torch.Tensor:
 
     weights = (cell[data.batch] @ diff).norm(p=2, dim=1).squeeze()
     norm = scatter(weights, data.batch, reduce="max")[data.batch]
-    norm = norm + (norm == 0.0)
+    norm = torch.where(norm == 0.0, torch.ones_like(norm), norm)
     weights = weights / norm
 
     return weights

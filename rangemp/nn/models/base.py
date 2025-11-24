@@ -1,7 +1,7 @@
 from typing import List
 
 import torch
-from torch_geometric.utils import scatter
+from ..scatter import scatter
 
 from mlcg.data import AtomicData
 from mlcg.data._keys import ENERGY_KEY

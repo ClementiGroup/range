@@ -1,7 +1,6 @@
 import torch
 from typing import Optional, Union, Dict, List, Any, Callable
-from torch_scatter import scatter_softmax
-from torch_geometric.utils import scatter
+from .scatter import scatter, scatter_softmax
 from torch_geometric.nn.inits import glorot
 
 from mlcg.nn import MLP
@@ -31,30 +30,28 @@ except ImportError as e:
 
 from .system import System
 
-@torch.compiler.disable
-def safe_scatter_softmax(*args, **kwargs):
-    return scatter_softmax(*args, **kwargs)
-
 
 class AggregationBlock(torch.nn.Module):
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 activation: torch.nn.Module,
-                 n_heads: int,
-                 basis_dim: int,
-                 **kwargs):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        activation: torch.nn.Module,
+        n_heads: int,
+        basis_dim: int,
+        **kwargs,
+    ):
         super().__init__()
 
         if in_channels % n_heads != 0:
             raise ValueError(
-                    "The number of input attention channels must be divisible by the number of heads"
-                    )
+                "The number of input attention channels must be divisible by the number of heads"
+            )
 
         if out_channels % n_heads != 0:
             raise ValueError(
-                    "The number of output attention channels must be divisible by the number of heads"
-                    )
+                "The number of output attention channels must be divisible by the number of heads"
+            )
 
         self.n_heads = n_heads
         self.channels = out_channels
@@ -66,22 +63,26 @@ class AggregationBlock(torch.nn.Module):
 
         self.activation = torch.nn.LeakyReLU()
 
-        self.attention = torch.nn.Parameter(torch.empty(1, n_heads, out_channels // n_heads))
+        self.attention = torch.nn.Parameter(
+            torch.empty(1, n_heads, out_channels // n_heads)
+        )
 
         self.basis_dim = basis_dim
         self.lin_E = torch.nn.Linear(basis_dim, out_channels, bias=False)
 
         self.output_layer = torch.nn.Sequential(
-                torch.nn.LayerNorm(out_channels),
-                activation,
-                )
+            torch.nn.LayerNorm(out_channels),
+            activation,
+        )
 
-    def forward(self,
-                senders: torch.Tensor,
-                receivers: torch.Tensor,
-                edge_indices: torch.Tensor,
-                edge_attrs: torch.Tensor,
-                *args) -> torch.Tensor:
+    def forward(
+        self,
+        senders: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        *args,
+    ) -> torch.Tensor:
         """
         Forward pass for the attention block.
 
@@ -101,25 +102,22 @@ class AggregationBlock(torch.nn.Module):
         V = self.lin_V(senders)[edge_indices[0]]
 
         weights = torch.sum(
-                self.attention*
-                self.activation(
-                    (Q + K + E).view(-1, self.n_heads, self.hidden_channels)
-                    ),
-                dim=2)
-        weights = safe_scatter_softmax(weights,
-                                  edge_indices[1],
-                                  dim=0)
+            self.attention
+            * self.activation((Q + K + E).view(-1, self.n_heads, self.hidden_channels)),
+            dim=2,
+        )
+        weights = scatter_softmax(weights, edge_indices[1], dim=0)
         weights = weights.unsqueeze(-1)
 
         V = V.view(-1, self.n_heads, self.hidden_channels)
 
         embedding = scatter(
-                (weights*V).view(-1, self.channels),
-                edge_indices[1],
-                reduce='add',
-                dim=0,
-                dim_size=receivers.shape[0],
-                )
+            (weights * V).view(-1, self.channels),
+            edge_indices[1],
+            reduce="add",
+            dim=0,
+            dim_size=receivers.shape[0],
+        )
 
         embedding = self.output_layer(embedding)
 
@@ -137,24 +135,26 @@ class AggregationBlock(torch.nn.Module):
 
 
 class BroadcastBlock(torch.nn.Module):
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 activation: torch.nn.Module,
-                 n_heads: int,
-                 basis_dim: int,
-                 **kwargs):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        activation: torch.nn.Module,
+        n_heads: int,
+        basis_dim: int,
+        **kwargs,
+    ):
         super().__init__()
 
         if in_channels % n_heads != 0:
             raise ValueError(
-                    "The number of input attention channels must be divisible by the number of heads"
-                    )
+                "The number of input attention channels must be divisible by the number of heads"
+            )
 
         if out_channels % n_heads != 0:
             raise ValueError(
-                    "The number of output attention channels must be divisible by the number of heads"
-                    )
+                "The number of output attention channels must be divisible by the number of heads"
+            )
 
         self.n_heads = n_heads
         self.channels = in_channels
@@ -166,33 +166,37 @@ class BroadcastBlock(torch.nn.Module):
 
         self.activation = torch.nn.LeakyReLU()
 
-        self.attention = torch.nn.Parameter(torch.empty(1, n_heads, in_channels // n_heads))
+        self.attention = torch.nn.Parameter(
+            torch.empty(1, n_heads, in_channels // n_heads)
+        )
 
         self.basis_dim = basis_dim
         self.lin_E = torch.nn.Linear(basis_dim, in_channels, bias=False)
 
-        self.weights_K = torch.nn.Parameter(torch.empty(n_heads,
-                                                        in_channels//n_heads,
-                                                        in_channels//n_heads))
-        self.weights_V = torch.nn.Parameter(torch.empty(n_heads,
-                                                        in_channels//n_heads,
-                                                        in_channels//n_heads))
+        self.weights_K = torch.nn.Parameter(
+            torch.empty(n_heads, in_channels // n_heads, in_channels // n_heads)
+        )
+        self.weights_V = torch.nn.Parameter(
+            torch.empty(n_heads, in_channels // n_heads, in_channels // n_heads)
+        )
 
         self.output_layer = torch.nn.Sequential(
-                torch.nn.Linear(in_channels, in_channels, bias=False),
-                torch.nn.LayerNorm(in_channels),
-                activation,
-                torch.nn.Linear(in_channels, out_channels, bias=False)
-                )
+            torch.nn.Linear(in_channels, in_channels, bias=False),
+            torch.nn.LayerNorm(in_channels),
+            activation,
+            torch.nn.Linear(in_channels, out_channels, bias=False),
+        )
 
-    def forward(self,
-                senders: torch.Tensor,
-                senders_self: torch.Tensor,
-                receivers: torch.Tensor,
-                edge_indices: torch.Tensor,
-                edge_attrs: torch.Tensor,
-                regularization_weights: torch.Tensor,
-                *args) -> torch.Tensor:
+    def forward(
+        self,
+        senders: torch.Tensor,
+        senders_self: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        regularization_weights: torch.Tensor,
+        *args,
+    ) -> torch.Tensor:
         """
         Forward pass for the attention block.
 
@@ -207,18 +211,16 @@ class BroadcastBlock(torch.nn.Module):
         Returns:
             torch.Tensor: Updated node embeddings.
         """
-        K = torch.vmap(torch.matmul, in_dims=(1, 0), out_dims=1)(senders.view(-1,
-                                                                              self.n_heads,
-                                                                              self.hidden_channels),
-                                                                 self.weights_K).reshape(-1, self.channels)
+        K = torch.vmap(torch.matmul, in_dims=(1, 0), out_dims=1)(
+            senders.view(-1, self.n_heads, self.hidden_channels), self.weights_K
+        ).reshape(-1, self.channels)
 
         K_self = self.lin_K(senders_self)
         K = torch.cat([K, K_self], dim=0)[edge_indices[0]]
 
-        V = torch.vmap(torch.matmul, in_dims=(1, 0), out_dims=1)(senders.view(-1,
-                                                                              self.n_heads,
-                                                                              self.hidden_channels),
-                                                                 self.weights_V).reshape(-1, self.channels)
+        V = torch.vmap(torch.matmul, in_dims=(1, 0), out_dims=1)(
+            senders.view(-1, self.n_heads, self.hidden_channels), self.weights_V
+        ).reshape(-1, self.channels)
         V_self = self.lin_V(senders_self)
         V = torch.cat([V, V_self], dim=0)[edge_indices[0]]
 
@@ -226,26 +228,23 @@ class BroadcastBlock(torch.nn.Module):
         Q = self.lin_Q(receivers)[edge_indices[1]]
 
         weights = torch.sum(
-                self.attention*
-                self.activation(
-                    (Q + K + E).view(-1, self.n_heads, self.hidden_channels)
-                    ),
-                dim=2)
-        weights = safe_scatter_softmax(weights,
-                                  edge_indices[1],
-                                  dim=0)
+            self.attention
+            * self.activation((Q + K + E).view(-1, self.n_heads, self.hidden_channels)),
+            dim=2,
+        )
+        weights = scatter_softmax(weights, edge_indices[1], dim=0)
 
         weights = weights.unsqueeze(-1)
 
         V = V.view(-1, self.n_heads, self.hidden_channels)
 
         embedding = scatter(
-                regularization_weights.unsqueeze(1)*(weights*V).view(-1, self.channels),
-                edge_indices[1],
-                reduce='add',
-                dim=0,
-                dim_size=receivers.shape[0],
-                )
+            regularization_weights.unsqueeze(1) * (weights * V).view(-1, self.channels),
+            edge_indices[1],
+            reduce="add",
+            dim=0,
+            dim_size=receivers.shape[0],
+        )
 
         embedding = self.output_layer(embedding)
 
@@ -264,14 +263,16 @@ class BroadcastBlock(torch.nn.Module):
 
 
 class SchnetBlock(torch.nn.Module):
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 basis_dim: int,
-                 edge_dim: int,
-                 activation: torch.nn.Module,
-                 cutoff: torch.nn.Module,
-                 **kwargs):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        basis_dim: int,
+        edge_dim: int,
+        activation: torch.nn.Module,
+        cutoff: torch.nn.Module,
+        **kwargs,
+    ):
         super().__init__()
 
         self.lin1 = torch.nn.Linear(in_channels, edge_dim, bias=False)
@@ -279,49 +280,43 @@ class SchnetBlock(torch.nn.Module):
         self.cutoff = cutoff
 
         self.filter_network = MLP(
-                layer_widths=[basis_dim,
-                              edge_dim,
-                              edge_dim],
-                activation_func=activation,
-                last_bias=False
-                )
+            layer_widths=[basis_dim, edge_dim, edge_dim],
+            activation_func=activation,
+            last_bias=False,
+        )
 
         self.lin2 = torch.nn.Linear(edge_dim, out_channels)
         self.layer_norm = torch.nn.LayerNorm(out_channels)
         self.activation = activation
         self.lin3 = torch.nn.Linear(out_channels, out_channels)
 
-    def forward(self,
-                senders: torch.Tensor,
-                receivers: torch.Tensor,
-                edge_indices: torch.Tensor,
-                edge_weights: torch.Tensor,
-                edge_versors: torch.Tensor,
-                edge_attrs: torch.Tensor,
-                *args) -> torch.Tensor:
+    def forward(
+        self,
+        senders: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_weights: torch.Tensor,
+        edge_versors: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        *args,
+    ) -> torch.Tensor:
 
         C = self.cutoff(edge_weights)
-        weights = self.filter_network(edge_attrs)*C.view(-1, 1)
+        weights = self.filter_network(edge_attrs) * C.view(-1, 1)
 
         V = self.lin1(senders[0])[edge_indices[0]]
 
         embedding_update = scatter(
-                weights*V,
-                edge_indices[1],
-                reduce='add',
-                dim=0,
-                dim_size=receivers[0].shape[0],
-                )
+            weights * V,
+            edge_indices[1],
+            reduce="add",
+            dim=0,
+            dim_size=receivers[0].shape[0],
+        )
 
         embedding_update = self.lin3(
-                self.activation(
-                    self.layer_norm(
-                        self.lin2(
-                            embedding_update
-                            )
-                        )
-                    )
-                )
+            self.activation(self.layer_norm(self.lin2(embedding_update)))
+        )
         return [receivers[0] + embedding_update]
 
     def reset_parameters(self):
@@ -332,40 +327,45 @@ class SchnetBlock(torch.nn.Module):
 
 
 class PaiNNBlock(torch.nn.Module):
-    def __init__(self,
-                 channels: int,
-                 basis_dim: int,
-                 activation: torch.nn.Module,
-                 cutoff: torch.nn.Module,
-                 aggr: str,
-                 epsilon: float,
-                 **kwargs):
+    def __init__(
+        self,
+        channels: int,
+        basis_dim: int,
+        activation: torch.nn.Module,
+        cutoff: torch.nn.Module,
+        aggr: str,
+        epsilon: float,
+        **kwargs,
+    ):
         super().__init__()
 
-        self.interaction = PaiNNInteraction(channels,
-                                            basis_dim,
-                                            cutoff,
-                                            activation,
-                                            aggr)
-        self.mixing = PaiNNMixing(channels,
-                                  activation,
-                                  epsilon)
+        self.interaction = PaiNNInteraction(
+            channels, basis_dim, cutoff, activation, aggr
+        )
+        self.mixing = PaiNNMixing(channels, activation, epsilon)
 
         self.reset_parameters()
 
-    def forward(self,
-                senders: torch.Tensor,
-                receivers: torch.Tensor,
-                edge_indices: torch.Tensor,
-                edge_weights: torch.Tensor,
-                edge_versors: torch.Tensor,
-                edge_attrs: torch.Tensor,
-                *args) -> torch.Tensor:
+    def forward(
+        self,
+        senders: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_weights: torch.Tensor,
+        edge_versors: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        *args,
+    ) -> torch.Tensor:
 
         q = senders[0].unsqueeze(1)  # (n_atoms, 1, n_features)
         mu = senders[1]
         q, mu = self.interaction(
-            q, mu, edge_versors, edge_indices, edge_weights.unsqueeze(1), edge_attrs.unsqueeze(1)
+            q,
+            mu,
+            edge_versors,
+            edge_indices,
+            edge_weights.unsqueeze(1),
+            edge_attrs.unsqueeze(1),
         )
         q, mu = self.mixing(q, mu)
         q = q.squeeze(1)
@@ -378,19 +378,21 @@ class PaiNNBlock(torch.nn.Module):
 
 
 class So3kratesBlock(torch.nn.Module):
-    def __init__(self,
-                 hidden_channels: int,
-                 degrees: List[int],
-                 edge_attr_dim: int,
-                 cutoff: torch.nn.Module,
-                 fb_rad_filter_features: List[int],
-                 fb_sph_filter_features: List[int],
-                 gb_rad_filter_features: List[int],
-                 gb_sph_filter_features: List[int],
-                 n_heads: int = 4,
-                 activation: torch.nn.Module = torch.nn.SiLU(),
-                 parity: bool = True,
-                 **kwargs):
+    def __init__(
+        self,
+        hidden_channels: int,
+        degrees: List[int],
+        edge_attr_dim: int,
+        cutoff: torch.nn.Module,
+        fb_rad_filter_features: List[int],
+        fb_sph_filter_features: List[int],
+        gb_rad_filter_features: List[int],
+        gb_sph_filter_features: List[int],
+        n_heads: int = 4,
+        activation: torch.nn.Module = torch.nn.SiLU(),
+        parity: bool = True,
+        **kwargs,
+    ):
         super().__init__()
 
         self.hidden_channels = hidden_channels
@@ -415,9 +417,7 @@ class So3kratesBlock(torch.nn.Module):
         )
 
         # Feature-spherical interaction
-        self.mixing = So3kratesMixing(
-            hidden_channels, self.m_tot, degrees, activation
-        )
+        self.mixing = So3kratesMixing(hidden_channels, self.m_tot, degrees, activation)
 
         self.x_norm = torch.nn.LayerNorm(hidden_channels)
 
@@ -445,14 +445,16 @@ class So3kratesBlock(torch.nn.Module):
 
         self.reset_parameters()
 
-    def forward(self,
-                senders: torch.Tensor,
-                receivers: torch.Tensor,
-                edge_indices: torch.Tensor,
-                edge_weights: torch.Tensor,
-                edge_versors: torch.Tensor,
-                edge_attrs: torch.Tensor,
-                *args) -> torch.Tensor:
+    def forward(
+        self,
+        senders: torch.Tensor,
+        receivers: torch.Tensor,
+        edge_indices: torch.Tensor,
+        edge_weights: torch.Tensor,
+        edge_versors: torch.Tensor,
+        edge_attrs: torch.Tensor,
+        *args,
+    ) -> torch.Tensor:
 
         x = self.x_norm(senders[0])
         chi = senders[1]
@@ -491,8 +493,7 @@ class So3kratesBlock(torch.nn.Module):
             init_xavier_uniform(module)
         for module in self.residual_out_2:
             init_xavier_uniform(module)
-     
-    
+
 
 class MACEBlock(torch.nn.Module):
     def __init__(
@@ -606,10 +607,12 @@ class MACEBlock(torch.nn.Module):
 
 
 class RANGEInteractionBlock(torch.nn.Module):
-    def __init__(self,
-                 propagation_block: torch.nn.Module,
-                 aggregation_block: torch.nn.Module,
-                 broadcast_block: torch.nn.Module):
+    def __init__(
+        self,
+        propagation_block: torch.nn.Module,
+        aggregation_block: torch.nn.Module,
+        broadcast_block: torch.nn.Module,
+    ):
         super().__init__()
         self.propagation_block = propagation_block
         self.aggregation_block = aggregation_block
@@ -617,30 +620,30 @@ class RANGEInteractionBlock(torch.nn.Module):
 
     def forward(self, system: System) -> None:
         system.embedding = self.propagation_block(
-                system.embedding,
-                system.embedding,
-                system.edge_indices,
-                system.edge_weights,
-                system.edge_versors,
-                system.edge_attrs,
-                **system.extra_propagation_args
-                )
+            system.embedding,
+            system.embedding,
+            system.edge_indices,
+            system.edge_weights,
+            system.edge_versors,
+            system.edge_attrs,
+            **system.extra_propagation_args,
+        )
 
         system.virt_embedding = self.aggregation_block(
-                system.embedding[0],
-                system.virt_embedding,
-                system.aggregation_edge_indices,
-                system.aggregation_edge_attrs
-                )
+            system.embedding[0],
+            system.virt_embedding,
+            system.aggregation_edge_indices,
+            system.aggregation_edge_attrs,
+        )
 
         system.embedding[0] = self.broadcast_block(
-                system.virt_embedding,
-                system.embedding[0],
-                system.embedding[0],
-                system.broadcast_edge_indices,
-                system.broadcast_edge_attrs,
-                system.regularization_weights
-                )
+            system.virt_embedding,
+            system.embedding[0],
+            system.embedding[0],
+            system.broadcast_edge_indices,
+            system.broadcast_edge_attrs,
+            system.regularization_weights,
+        )
 
         return None
 
