@@ -113,7 +113,7 @@ class StandardRANGESchNet(RANGESchNet):
         )
 
         virt_basis_instance = create_instance(
-            radial_basis_fn, cutoff=1.0, num_rbf=virt_basis_dim, trainable=False
+            "mlcg.nn.GaussianBasis", cutoff=1.0, num_rbf=virt_basis_dim, trainable=False
         )
 
         regularization_instance = create_instance(
