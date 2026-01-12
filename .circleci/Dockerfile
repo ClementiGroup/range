@@ -1,4 +1,8 @@
-FROM ubuntu:20.04
+FROM python:3.12.0-slim
+
+# Avoid Python writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Remove any third-party apt sources to avoid issues with expiring keys.
 RUN rm -f /etc/apt/sources.list.d/*.list
@@ -14,36 +18,27 @@ RUN apt-get update && apt-get install -y \
     libx11-6 \
  && rm -rf /var/lib/apt/lists/*
 
+# Create a clean virtual environment
+# and add venv to PATH so it's always active
+ENV VIRTUAL_ENV=/venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Upgrade pip/setuptools/wheel inside the venv
+RUN pip install --upgrade pip setuptools wheel
+
+## Install mlcg v0.1.1
+WORKDIR /tmp/build
+RUN git clone https://github.com/ClementiGroup/mlcg.git mlcg
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r mlcg/env_cpu_with_hashes.in
+RUN pip install --no-deps git+https://github.com/ACEsuit/mace.git@v0.3.13
+RUN pip install --no-deps nequip==0.12.1 nequip-allegro==0.7.0
+RUN pip install mlcg/.
+RUN rm -rf /tmp/build
+
 # Create a working directory
 RUN mkdir /app
 WORKDIR /app
 
-# Create a non-root user and switch to it
-RUN adduser --disabled-password --gecos '' --shell /bin/bash user \
- && chown -R user:user /app
-RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-user
-USER user
-
-# All users can use /home/user as their home directory
-ENV HOME=/home/user
-RUN chmod 777 /home/user
-
-# Set up the Conda environment
-ENV CONDA_AUTO_UPDATE_CONDA=false \
-    PATH=/home/user/miniconda/bin:$PATH
-
-
-RUN curl -Lo ~/miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-py39_4.10.3-Linux-x86_64.sh \
- && chmod +x ~/miniconda.sh \
- && ~/miniconda.sh -b -p ~/miniconda \
- && rm ~/miniconda.sh
-
-
-# Create conda environment
-RUN conda create -n mlcg python=3.12 -y && conda clean -a -y
-# Make the environment the default for all subsequent commands and for when the container runs
-ENV PATH=/home/user/miniconda/envs/mlcg/bin:$PATH
-
-RUN conda clean -a -y
-# Set the default command to python3
-CMD ["python3"]
+# Default command (gets you a shell with venv active)
+CMD ["bash"]

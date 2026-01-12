@@ -15,6 +15,41 @@ from ..utils import calc_weights, calc_weights_pbc
 
 
 class RANGE(torch.nn.Module):
+    """
+    RANGE model coordinating embedding, interaction and output networks for graph systems.
+
+    This module is a wrapper that constructs a system with virtual system used in RANGE,
+    applies a sequence of interaction blocks, and reduces per-node contributions
+    to per-graph energies.
+
+    To apply with a specific baseline model the method MakeRealSystem has to be implemented.
+
+    Initialization parameters
+    -------------------------
+    embedding_layer : nn.Module
+        Module creating initial node embeddings from atomic attributes.
+    virt_embedding_layer : nn.Module
+        Module generating virtual-node embeddings (one per virtual level).
+    interaction_blocks : List[nn.Module] | RANGEInteractionBlock
+        One or many interaction blocks applied sequentially.
+    basis_instance : nn.Module
+        Basis (radial/edge) used by interaction modules for real edges.
+    cutoff : float
+        Cutoff distance used to construct neighbor lists / edge weighting.
+    num_virt_nodes : int
+        Number of virtual nodes per sample.
+    virt_basis_instance : nn.Module
+        Basis used to compute virtual->node edge attributes.
+    regularization_instance : nn.Module
+        Module providing regularization weights and statistics.
+    layer_norm : nn.Module
+        Layer normalization applied before the output network.
+    output_network : nn.Module
+        Module mapping node embeddings to per-node energies.
+    max_num_neighbors : int
+        Maximum allowed neighbors per node.
+    """
+
     def __init__(
         self,
         embedding_layer: torch.nn.Module,
@@ -57,6 +92,9 @@ class RANGE(torch.nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        """
+        Initialize model parameters.
+        """
         self.embedding_layer.reset_parameters()
         self.virt_embedding_layer.reset_parameters()
         for block in self.interaction_blocks:
@@ -64,9 +102,46 @@ class RANGE(torch.nn.Module):
         self.output_network.reset_parameters()
 
     def MakeRealSystem(self, data):
+        """
+        Build the System object for the 'real' (atom) graph.
+
+        Expected to construct `system.embedding`, `system.edge_*` tensors,
+        indices and other bookkeeping for real atoms from AtomicData.
+
+        Parameters
+        ----------
+        data : AtomicData
+            Input atomic data containing at least positions, atomic numbers and batch.
+
+        Returns
+        -------
+        System
+            A System instance populated with real/atom graph structures.
+        """
         raise NotImplementedError
 
     def MakeVirtSystem(self, data, system):
+        """
+        Extend the provided System with virtual-node connectivity and features.
+
+        Populates:
+          - system.virt_embedding : per-virtual-node embeddings
+          - system.aggregation_edge_indices / aggregation_edge_attrs : edges from atoms -> virtuals
+          - system.broadcast_edge_indices / broadcast_edge_attrs : edges from virtuals -> atoms
+          - system.regularization_weights : per-edge regularization scalars
+
+        Parameters
+        ----------
+        data : AtomicData
+            Input atomic data used to compute per-graph virtual connections.
+        system : System
+            System created by MakeRealSystem to be augmented.
+
+        Returns
+        -------
+        System
+            The mutated system (same instance) with virtual nodes added.
+        """
         device = data.pos.device
 
         virt_embedding = []
@@ -137,6 +212,27 @@ class RANGE(torch.nn.Module):
         return system
 
     def forward(self, data: AtomicData) -> AtomicData:
+        """
+        Run a forward pass of RANGE on AtomicData.
+
+        Performs:
+          - real system construction (MakeRealSystem)
+          - virtual node addition (MakeVirtSystem)
+          - sequential application of interaction blocks
+          - reduction of node energies to per-graph energies and logging to data.out
+
+        Parameters
+        ----------
+        data : AtomicData
+            Input atomic data. Must contain pos, batch and other keys expected by embedding/basis modules.
+
+        Returns
+        -------
+        AtomicData
+            Same AtomicData instance with `data.out[self.name]` set to a dict containing:
+              - ENERGY_KEY : per-graph energies (Tensor)
+              - 'regL1' : regularization statistics
+        """
         system = self.MakeRealSystem(data)
         system = self.MakeVirtSystem(data, system)
 
@@ -155,6 +251,25 @@ class RANGE(torch.nn.Module):
         return data
 
     def is_nl_compatible(self, nl):
+        """
+        Check if a given neighbor-list dictionary is compatible with this model.
+
+        A compatible neighbor list for RANGE must:
+          - be validated by validate_neighborlist()
+          - have order == 2
+          - not include self-interactions
+          - use the same rcut as this model's cutoff
+
+        Parameters
+        ----------
+        nl : dict
+            Neighbor-list dictionary.
+
+        Returns
+        -------
+        bool
+            True if the neighbor list suits the model, False otherwise.
+        """
         is_compatible = False
         if validate_neighborlist(nl):
             if (
@@ -169,6 +284,26 @@ class RANGE(torch.nn.Module):
     def neighbor_list(
         name: str, data: AtomicData, rcut: float, max_num_neighbors: int = 1000
     ) -> dict:
+        """
+        Helper to construct a neighbor-list mapping.
+
+        Parameters
+        ----------
+        name : str
+            Key name for the returned mapping.
+        data : AtomicData
+            Input atomic data to build the neighbor list from.
+        rcut : float
+            Cutoff radius for neighbor search.
+        max_num_neighbors : int
+            Maximum number of neighbors per atom.
+
+        Returns
+        -------
+        dict
+            A dictionary { name: neighbor_list_dict } where neighbor_list_dict is
+            the structure produced by atomic_data2neighbor_list(...).
+        """
         return {
             name: atomic_data2neighbor_list(
                 data, rcut, self_interaction=False, max_num_neighbors=max_num_neighbors

@@ -40,6 +40,42 @@ from e3nn.util.jit import compile_mode
 
 
 class RANGEMACE(RANGE):
+    """
+    RANGE adapter that uses the MACE implementation for equivariant per-node interactions.
+
+    This class wraps MACE building blocks so they can be used inside the RANGE
+    virtual-node framework. It converts AtomicData into the System structure
+    expected by RANGE, computes MACE-specific edge features and radial embeddings,
+    and collects per-graph energy contributions.
+
+    Initialization parameters
+    -------------------------
+    atomic_numbers (Tensor):
+        Sorted tensor with the distinct atomic numbers present in the dataset.
+    node_embeddig (nn.Module):
+        MACE node embedding module (produces per-atom node features).
+    radial_embeddig (nn.Module):
+        MACE radial embedding module (maps edge lengths -> radial features).
+    spherical_harmonics (nn.Module):
+        Module producing spherical harmonic edge features from edge vectors.
+    virt_embedding_layer (nn.Module):
+        Embedding module producing per-virtual-node vectors used by RANGE.
+    interaction_blocks (List[nn.Module]):
+        Sequence of interaction / propagation blocks to apply inside RANGE.
+    cutoff (float):
+        Cutoff distance used for neighbor list construction and for radial embeddings.
+    num_virt_nodes (int):
+        Number of virtual nodes to allocate per graph.
+    virt_basis_instance (nn.Module):
+        Radial/basis instance used for virtual edges inside RANGE.
+    regularization_instance (nn.Module):
+        Regularization module used to compute per-graph regularization statistics.
+    max_num_neighbors (int):
+        Maximum neighbors per atom when building neighbor lists.
+    pair_repulsion_fn (nn.Module | None):
+        Optional pairwise repulsion function that returns per-edge pair energies.
+    """
+
     name: Final[str] = "RANGEMACE"
 
     def __init__(
@@ -90,6 +126,7 @@ class RANGEMACE(RANGE):
         self.types_mapping[atomic_numbers] = torch.arange(atomic_numbers.shape[0])
 
     def reset_parameters(self) -> None:
+        """Reset parameters of each interaction block contained in this model."""
         for block in self.interaction_blocks:
             block.reset_parameters()
 
@@ -179,6 +216,41 @@ class RANGEMACE(RANGE):
 
 @compile_mode("script")
 class StandardRANGEMACE(RANGEMACE):
+    """
+    Helper factory to construct a typical RANGEMACE configuration from high-level
+    hyperparameters.
+
+    Parameters
+    ----------
+    r_max : float
+        Cutoff radius for radial basis / neighbor lists.
+    num_bessel, num_polynomial_cutoff, max_ell : ints
+        Radial / spherical-harmonic discretization parameters.
+    interaction_cls, interaction_cls_first : str
+        Identifiers for MACE interaction variants used for intermediate and first blocks.
+    num_interactions : int
+        Number of MACE interaction layers to stack.
+    hidden_irreps, MLP_irreps : str
+        e3nn irreps specification strings for hidden feature representations.
+    avg_num_neighbors : float
+        Average number of neighbors used to scale modules.
+    atomic_numbers : List[int]
+        List of atomic numbers to support (sorted internally).
+    correlation : int | List[int]
+        Correlation order(s) used by product/readout blocks.
+    gate : nn.Module, optional
+        Activation used across blocks (default: Tanh).
+    max_num_neighbors : int, optional
+        Hard cap on neighbor counts.
+    pair_repulsion : bool, optional
+        Whether to include pair repulsion module.
+    distance_transform, radial_MLP, radial_type : optional
+        Radial configuration settings (defaults listed in signature).
+    cueq_config, num_virt_nodes, virt_hidden_channels, radial_basis_fn, virt_basis_dim,
+    num_virt_heads, regularization_fn, min_num_atoms, max_num_atoms :
+        Additional hyperparameters for virtual nodes and regularization.
+    """
+
     def __init__(
         self,
         r_max: float,

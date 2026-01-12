@@ -32,6 +32,19 @@ from .system import System
 
 
 class AggregationBlock(torch.nn.Module):
+    """
+    Attention-based aggregation block that collects messages from neighbor nodes
+    and produces updated node embeddings.
+
+    Initialization parameters
+    -------------------------
+    in_channels (int): dimensionality of sender node features
+    out_channels (int): dimensionality of output node features
+    activation (torch.nn.Module): non-linear activation used after aggregation
+    n_heads (int): number of attention heads (in/out channels must be divisible)
+    basis_dim (int): dimensionality of edge basis features
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -87,13 +100,13 @@ class AggregationBlock(torch.nn.Module):
         Forward pass for the attention block.
 
         Args:
-            senders (torch.Tensor): Feature matrix of sender nodes.
-            receivers (torch.Tensor): Feature matrix of receiver nodes.
-            edge_indices (torch.Tensor): Edge index tensor.
-            edge_attrs (torch.Tensor): Edge feature tensor.
+            senders (torch.Tensor): Feature matrix of sender nodes (N_senders x in_channels).
+            receivers (torch.Tensor): Feature matrix of receiver nodes (N_receivers x out_channels).
+            edge_indices (torch.Tensor): Edge index tensor (2, n_edges).
+            edge_attrs (torch.Tensor): Edge feature tensor (n_edges x basis_dim).
 
         Returns:
-            torch.Tensor: Updated node embeddings.
+            torch.Tensor: Updated node embeddings (N_receivers x out_channels).
         """
         E = self.lin_E(edge_attrs)
 
@@ -135,6 +148,21 @@ class AggregationBlock(torch.nn.Module):
 
 
 class BroadcastBlock(torch.nn.Module):
+    """
+    Broadcast block that maps aggregated virtual-node embeddings back to node embeddings.
+
+    Uses multi-head attention with learnable transforms for keys/values and an
+    optional per-edge regularization weight.
+
+    Initialization parameters
+    -------------------------
+    in_channels (int): dimensionality of node features used for broadcasting
+    out_channels (int): dimensionality of the output node features
+    activation (torch.nn.Module): activation used inside the output network
+    n_heads (int): number of attention heads
+    basis_dim (int): dimensionality of edge basis features
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -201,11 +229,11 @@ class BroadcastBlock(torch.nn.Module):
         Forward pass for the attention block.
 
         Args:
-            senders (torch.Tensor): Feature matrix of sender nodes.
-            senders_self (torch.Tensor): Feature matrix of sender nodes in self-loops.
-            receivers (torch.Tensor): Feature matrix of receiver nodes.
-            edge_indices (torch.Tensor): Edge index tensor.
-            edge_attrs (torch.Tensor): Edge feature tensor.
+            senders (torch.Tensor): Feature matrix of sender nodes (N_senders x in_channels).
+            senders_self (torch.Tensor): Feature matrix of sender nodes in self-loops (N_receivers x in_channels).
+            receivers (torch.Tensor): Feature matrix of receiver nodes (N_receivers x in_channels).
+            edge_indices (torch.Tensor): Edge index tensor (2, n_edges).
+            edge_attrs (torch.Tensor): Edge feature tensor (n_edges x basis_dim).
             regularization_weights (torch.Tensor): .
 
         Returns:
@@ -251,6 +279,9 @@ class BroadcastBlock(torch.nn.Module):
         return embedding
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         init_xavier_uniform(self.lin_E)
         init_xavier_uniform(self.lin_Q)
         init_xavier_uniform(self.lin_K)
@@ -263,6 +294,21 @@ class BroadcastBlock(torch.nn.Module):
 
 
 class SchnetBlock(torch.nn.Module):
+    """
+    SchNet-style interaction block.
+
+    Applies radial filter MLPs and cutoff weighting to produce local embedding updates.
+
+    Initialization parameters
+    -------------------------
+    in_channels (int): dimensionality of input node features
+    out_channels (int): dimensionality of output node features
+    basis_dim (int): dimensionality of radial basis features
+    edge_dim (int): intermediate edge feature dimension inside the block
+    activation (torch.nn.Module): non-linearity for the block
+    cutoff (torch.nn.Module): cutoff function applied to distances
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -300,6 +346,21 @@ class SchnetBlock(torch.nn.Module):
         edge_attrs: torch.Tensor,
         *args,
     ) -> torch.Tensor:
+        """
+        Apply SchNet forward.
+
+        Args:
+            senders (Tensor): senders node feature tensor to read from
+            receivers (Tensor): receivers node feature tensor to update
+            edge_indices (Tensor): edge connections (2, n_edges)
+            edge_weights (Tensor): edge scalar distances (n_edges,)
+            edge_versors (Tensor): not used
+            edge_attrs (Tensor): edge basis attributes (n_edges x basis_dim)
+
+        Return:
+            list: [updated_node_features] where updated_node_features has shape (N_nodes x out_channels)
+
+        """
 
         C = self.cutoff(edge_weights)
         weights = self.filter_network(edge_attrs) * C.view(-1, 1)
@@ -320,6 +381,9 @@ class SchnetBlock(torch.nn.Module):
         return [receivers[0] + embedding_update]
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         self.filter_network.reset_parameters()
         init_xavier_uniform(self.lin1)
         init_xavier_uniform(self.lin2)
@@ -327,6 +391,23 @@ class SchnetBlock(torch.nn.Module):
 
 
 class PaiNNBlock(torch.nn.Module):
+    """
+    PaiNN interaction + mixing block wrapper.
+
+    Runs PaiNN equivariant interaction followed by the corresponding mixing step to
+    update scalar and vector features.
+
+    Initialization parameters
+    -------------------------
+    channels (int): number of scalar feature channels
+    basis_dim (int): radial basis dimensionality used by the interaction
+    activation (torch.nn.Module): activation for mixing network
+    cutoff (torch.nn.Module): cutoff function used by interaction
+    aggr (str): aggregation mode passed to interaction (e.g. 'sum'/'mean')
+    epsilon (float): small value used by mixing to stabilize updates
+
+    """
+
     def __init__(
         self,
         channels: int,
@@ -356,6 +437,18 @@ class PaiNNBlock(torch.nn.Module):
         edge_attrs: torch.Tensor,
         *args,
     ) -> torch.Tensor:
+        """
+        Args:
+            senders (Sequence[Tensor]): [q (N x channels), mu (N x 3 x channels)] inputs
+            receivers (Sequence[Tensor]): not used
+            ege_indices (Tensor): edge connections (2, n_edges)
+            edge_weights (Tensor): edge scalar distances (n_edges,)
+            edge_versors (Tensor): edge versors
+            edge_attrs (Tensor): edge basis attributes (n_edges x basis_dim)
+
+        Return:
+            list: [q_updated, mu_updated]
+        """
 
         q = senders[0].unsqueeze(1)  # (n_atoms, 1, n_features)
         mu = senders[1]
@@ -373,11 +466,33 @@ class PaiNNBlock(torch.nn.Module):
         return [q, mu]
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         self.interaction.reset_parameters()
         self.mixing.reset_parameters()
 
 
 class So3kratesBlock(torch.nn.Module):
+    """
+    SO3krates equivariant block.
+
+    Combines an SO(3)-equivariant interaction with a mixing step that couples scalar
+    features and spherical-harmonic coefficients.
+
+    Initialization parameters
+    -------------------------
+    hidden_channels (int): number of scalar hidden channels
+    degrees (List[int]): spherical harmonic degrees used
+    edge_attr_dim (int): per-edge attribute dimensionality
+    cutoff (torch.nn.Module): cutoff module applied to edge distances
+    fb_rad_filter_features, fb_sph_filter_features: MLP widths for feature-block radial/sph filters
+    gb_rad_filter_features, gb_sph_filter_features: MLP widths for geometric-block radial/sph filters
+    n_heads (int): number of attention heads in interaction
+    activation (torch.nn.Module): activation used across submodules
+    parity (bool): whether parity information is used
+    """
+
     def __init__(
         self,
         hidden_channels: int,
@@ -455,6 +570,20 @@ class So3kratesBlock(torch.nn.Module):
         edge_attrs: torch.Tensor,
         *args,
     ) -> torch.Tensor:
+        """
+        So3Krates forward.
+
+        Args:
+            senders (Sequence[Tensor]): [x (N x hidden_channels), chi (N x m_tot)] where chi holds spherical coefficients
+            receivers (Sequence[Tensor]): not used
+            ege_indices (Tensor): edge connections (2, n_edges)
+            edge_weights (Tensor): edge scalar distances (n_edges,)
+            edge_versors (Tensor): edge versors
+            edge_attrs (Tensor): edge basis attributes (n_edges x basis_dim)
+
+        Return:
+            list: [x_updated, chi_updated] updated scalar and spherical-harmonic features
+        """
 
         x = self.x_norm(senders[0])
         chi = senders[1]
@@ -483,6 +612,9 @@ class So3kratesBlock(torch.nn.Module):
         return [x, chi]
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         self.interaction.reset_parameters()
         self.mixing.reset_parameters()
         for module in self.residual_delta_1:
@@ -496,6 +628,29 @@ class So3kratesBlock(torch.nn.Module):
 
 
 class MACEBlock(torch.nn.Module):
+    """
+    Wrapper block integrating a MACE interaction, product basis, and readout.
+
+    Computes per-node contributions and reduces them to graph energies using the
+    provided priors/product/readout modules.
+
+    Initialization parameters
+    -------------------------
+    interaction_cls (str): interaction class identifier used to construct interaction module
+    node_attr_irreps, node_feats_irreps, edge_attrs_irrep, edge_feats_irreps, target_irreps:
+        e3nn Irreps describing input/output representations
+    hidden_irreps (Irreps or str): hidden representation for products/readout
+    correlation (int): correlation order for product basis
+    num_elements (int): number of chemical elements (used by product/readout)
+    avg_num_neighbors (int): average number of neighbors used by interaction module
+    radial_MLP (Optional[List[int]]): radial MLP widths
+    cueq_config (Optional[Dict]): optional charge equilibration configuration
+    linear_readout (bool): whether to use linear readout or non-linear readout
+    gate (Optional[Callable]): gating function used by non-linear readout
+    MLP_irreps (str): Irreps for MLP used in non-linear readout
+
+    """
+
     def __init__(
         self,
         interaction_cls: str,
@@ -574,6 +729,24 @@ class MACEBlock(torch.nn.Module):
         energy_list: List[torch.Tensor],
         *args,
     ):
+        """
+        MACE forward.
+
+        Args:
+            senders (Tensor): concatenated node feature tensors expected by interaction
+            receivers (Tensor): unused
+            edge_indices (Tensor): per-edge indices
+            edge_feats (Tensor): per-edge feature tensors
+            edge_versors (Tensor): unused
+            edge_attrs (Tensor): edge attribute tensors for interaction/product/readout
+            node_attrs (Tensor): node attribute tensor (e.g., atomic numbers embeddings)
+            batch (Tensor): graph index per node used to reduce node energies
+            energy_list (List[Tensor]): mutable list that the block appends per-graph energies to
+
+        Returns:
+            list: slices of node feature irreps (one tensor per hidden irreps slice); also appends computed
+            per-graph energy to energy_list (in-place)
+        """
 
         node_heads = torch.zeros_like(batch)
         num_atoms_arange = torch.arange(batch.shape[0])  # , device=node_attrs.device)
@@ -603,10 +776,32 @@ class MACEBlock(torch.nn.Module):
         return [node_feats[:, irrs] for irrs in self.hidden_irreps_slices]
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         pass
 
 
 class RANGEInteractionBlock(torch.nn.Module):
+    """
+    Composite block coordinating propagation, aggregation and broadcast steps.
+
+    Initialization parameters
+    -------------------------
+    propagation_block (nn.Module): module that computes per-edge/node message propagation
+    aggregation_block (nn.Module): module that aggregates messages to virtual nodes
+    broadcast_block (nn.Module): module that broadcasts virtual updates back to nodes
+
+    Forward inputs
+    --------------
+    system (System): System object containing embeddings, edge indices/attrs, and bookkeeping tensors.
+                    The block mutates `system.embedding`, `system.virt_embedding` and `system.embedding[0]`.
+
+    Output
+    ------
+    None (mutates the provided System in-place)
+    """
+
     def __init__(
         self,
         propagation_block: torch.nn.Module,
@@ -648,6 +843,9 @@ class RANGEInteractionBlock(torch.nn.Module):
         return None
 
     def reset_parameters(self):
+        """
+        Reinitializes the model parameters.
+        """
         self.propagation_block.reset_parameters()
         self.aggregation_block.reset_parameters()
         self.broadcast_block.reset_parameters()

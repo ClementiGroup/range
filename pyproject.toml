@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rangemp"
+version = "0.0.1"
+description = "RANGE is a model-agnostic framework that employs an attention-based aggregation-broadcast mechanism to significantly reduce oversquashing effects in message-passing neural networks."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.12"
+authors = [
+  {name = "Jacopo Venturin"},
+  {name = "Alessandro Caruso"},
+]
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "mlcg",
+    "aggforce @ git+https://github.com/noegroup/aggforce.git",
+    "torch-scatter",
+    "torch>=2.6.0",
+    "torch-geometric>=2.6.1",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["rangemp*"]
+
+[project.urls]
+Homepage = "https://github.com/ClementiGroup/range-dev"
+Issues = "https://github.com/ClementiGroup/range-dev/issues"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

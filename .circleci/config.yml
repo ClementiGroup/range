@@ -2,26 +2,15 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: jacopoventurin/mlcg_python_312:v0.1
+      - image: jacopoventurin/mlcg_prebuilt_cpu_python_312:v0.1
     parallelism: 1   # run tests across 1 parallel containers
     steps:
       - checkout
       - run:
-          name: "Install enviroment"
-          command: |
-            pip --version
-            mkdir -p /tmp/mlcg
-            git clone git@github.com:ClementiGroup/mlcg.git /tmp/mlcg
-            cd /tmp/mlcg
-            pip install -r env_with_hashes.in
-            pip install --no-deps git+https://github.com/ACEsuit/mace.git@v0.3.13
-            pip install --no-deps nequip==0.12.1 nequip-allegro==0.7.0
-            pip install .
-            cd -
-      - run:
           name: "Install repo"
           command: |
-            pip install .
+            pip --version
+            pip install .[dev]
       - run:
           name: "Run code tests"
           command: "pytest ."

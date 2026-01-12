@@ -39,6 +39,8 @@ def _get_canonical_key(reduce: str) -> str:
 
 
 class SafeScatterMax(torch.autograd.Function):
+    """Autograd-safe scatter max: returns per-index maxima and splits gradients among ties."""
+
     @staticmethod
     def forward(ctx, src, index, dim=0, dim_size=None):
         # Compute max normally in forward pass
@@ -69,10 +71,13 @@ class SafeScatterMax(torch.autograd.Function):
 
 
 def scatter_max(src, index, dim=0, dim_size=None):
+    """Convenience wrapper for SafeScatterMax.apply."""
     return SafeScatterMax.apply(src, index, dim, dim_size)
 
 
 class SafeScatterMin(torch.autograd.Function):
+    """Autograd-safe scatter min: returns per-index minima and splits gradients among ties."""
+
     @staticmethod
     def forward(ctx, src, index, dim=0, dim_size=None):
         # Compute max normally in forward pass
@@ -103,6 +108,7 @@ class SafeScatterMin(torch.autograd.Function):
 
 
 def scatter_min(src, index, dim=0, dim_size=None):
+    """Convenience wrapper for SafeScatterMin.apply."""
     return SafeScatterMin.apply(src, index, dim, dim_size)
 
 
@@ -159,7 +165,8 @@ def scatter(
         )
 
 
-def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
+def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int) -> torch.Tensor:
+    """Broadcast `src` to the shape of `other` starting at dimension `dim`."""
     if dim < 0:
         dim = other.dim() + dim
     for _ in range(dim):
@@ -176,6 +183,8 @@ def scatter_softmax(
     dim: int = -1,
     dim_size: Optional[int] = None,
 ) -> torch.Tensor:
+    """Scatter-aware softmax: compute softmax scores grouped by `index` along `dim`."""
+
     if not torch.is_floating_point(src):
         raise ValueError("`scatter_softmax` requires floating-point input tensors.")
 
