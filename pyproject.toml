@@ -17,7 +17,6 @@ license-files = ["LICENSE"]
 dependencies = [
     "mlcg",
     "aggforce @ git+https://github.com/noegroup/aggforce.git",
-    "torch-scatter",
     "torch>=2.6.0",
     "torch-geometric>=2.6.1",
 ]
