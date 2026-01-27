@@ -5,7 +5,6 @@ from .so3krates import RANGESo3krates, StandardRANGESo3krates
 
 from .mace import RANGEMACE, StandardRANGEMACE
 
-
 __all__ = [
     "RANGESchNet",
     "RANGEPaiNN",

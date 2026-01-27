@@ -74,6 +74,9 @@ class RANGEMACE(RANGE):
         Maximum neighbors per atom when building neighbor lists.
     pair_repulsion_fn (nn.Module | None):
         Optional pairwise repulsion function that returns per-edge pair energies.
+    nls_distance_method:
+        Method for computing a neighbor list. Supported values are
+        `torch`, `nvalchemi_naive`, `nvalchemi_cell` and custom.
     """
 
     name: Final[str] = "RANGEMACE"
@@ -92,6 +95,7 @@ class RANGEMACE(RANGE):
         regularization_instance: torch.nn.Module,
         max_num_neighbors: int,
         pair_repulsion_fn: torch.nn.Module,
+        nls_distance_method: str = "torch",
     ):
 
         super().__init__(
@@ -106,6 +110,7 @@ class RANGEMACE(RANGE):
             None,
             None,
             max_num_neighbors,
+            nls_distance_method=nls_distance_method,
         )
         delattr(self, "layer_norm")
         delattr(self, "embedding_layer")
@@ -272,6 +277,7 @@ class StandardRANGEMACE(RANGEMACE):
         radial_MLP: Optional[List[int]] = None,
         radial_type: Optional[str] = "bessel",
         cueq_config: Optional[Dict[str, Any]] = None,
+        use_cueq: Optional[bool] = False,
         num_virt_nodes: int = 1,
         virt_hidden_channels: int = 432,
         radial_basis_fn: str = "mlcg.nn.radial_basis.GaussianBasis",
@@ -280,6 +286,7 @@ class StandardRANGEMACE(RANGEMACE):
         regularization_fn: str = "rangemp.nn.regularization.LinearReg",
         min_num_atoms: int = 5,
         max_num_atoms: int = 100,
+        nls_distance_method: str = "torch",
     ):
         if num_interactions < 1:
             raise ValueError("At least one interaction block must be specified")
@@ -296,6 +303,18 @@ class StandardRANGEMACE(RANGEMACE):
         # Embedding
         node_attr_irreps = o3.Irreps([(num_elements, (0, 1))])
         node_feats_irreps = o3.Irreps([(hidden_irreps.count(o3.Irrep(0, 1)), (0, 1))])
+
+        if use_cueq and cueq_config is None:
+            from mace.modules.wrapper_ops import CuEquivarianceConfig
+
+            cueq_config = CuEquivarianceConfig(
+                enabled=True,
+                layout="ir_mul",  # irreps, multiplicity
+                group="O3",
+                optimize_all=True,
+            )
+            print("Using default CuEQuivarianceConfig:", cueq_config, flush=True)
+
         node_embedding = LinearNodeEmbeddingBlock(
             irreps_in=node_attr_irreps,
             irreps_out=node_feats_irreps,
@@ -352,7 +371,7 @@ class StandardRANGEMACE(RANGEMACE):
             "num_elements": num_elements,
             "avg_num_neighbors": avg_num_neighbors,
             "radial_MLP": radial_MLP,
-            "cueq_config": None,
+            "cueq_config": None if not use_cueq else cueq_config,
             "gate": gate,
             "MLP_irreps": MLP_irreps,
         }
@@ -411,4 +430,5 @@ class StandardRANGEMACE(RANGEMACE):
             regularization_instance,
             max_num_neighbors,
             pair_repulsion_fn,
+            nls_distance_method=nls_distance_method,
         )

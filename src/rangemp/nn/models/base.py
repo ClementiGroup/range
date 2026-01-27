@@ -48,6 +48,9 @@ class RANGE(torch.nn.Module):
         Module mapping node embeddings to per-node energies.
     max_num_neighbors : int
         Maximum allowed neighbors per node.
+    nls_distance_method:
+        Method for computing a neighbor list. Supported values are
+        `torch`, `nvalchemi_naive`, `nvalchemi_cell` and custom.
     """
 
     def __init__(
@@ -63,6 +66,7 @@ class RANGE(torch.nn.Module):
         layer_norm: torch.nn.Module,
         output_network: torch.nn.Module,
         max_num_neighbors: int,
+        nls_distance_method: str = "torch",
     ):
         super().__init__()
 
@@ -74,6 +78,7 @@ class RANGE(torch.nn.Module):
         self.max_num_neighbors = max_num_neighbors
         self.num_virt_nodes = num_virt_nodes
         self.regularization = regularization_instance
+        self.nls_distance_method = nls_distance_method
 
         # Check interaction_blocks
         if isinstance(interaction_blocks, List):
@@ -280,9 +285,12 @@ class RANGE(torch.nn.Module):
                 is_compatible = True
         return is_compatible
 
-    @staticmethod
     def neighbor_list(
-        name: str, data: AtomicData, rcut: float, max_num_neighbors: int = 1000
+        self,
+        name: str,
+        data: AtomicData,
+        rcut: float,
+        max_num_neighbors: int = 1000,
     ) -> dict:
         """
         Helper to construct a neighbor-list mapping.
@@ -304,8 +312,14 @@ class RANGE(torch.nn.Module):
             A dictionary { name: neighbor_list_dict } where neighbor_list_dict is
             the structure produced by atomic_data2neighbor_list(...).
         """
+        if not hasattr(self, "nls_distance_method"):
+            self.nls_distance_method = "torch"
         return {
             name: atomic_data2neighbor_list(
-                data, rcut, self_interaction=False, max_num_neighbors=max_num_neighbors
+                data,
+                rcut,
+                self_interaction=False,
+                max_num_neighbors=max_num_neighbors,
+                nls_distance_method=self.nls_distance_method,
             )
         }

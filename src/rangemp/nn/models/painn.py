@@ -49,6 +49,9 @@ class RANGEPaiNN(RANGE):
         MLP mapping node embeddings to per-node energy contributions.
     max_num_neighbors : int
         Hard cap for neighbor list size per node.
+    nls_distance_method:
+        Method for computing a neighbor list. Supported values are
+        `torch`, `nvalchemi_naive`, `nvalchemi_cell` and custom.
     """
 
     name: Final[str] = "RANGEPaiNN"
@@ -66,6 +69,7 @@ class RANGEPaiNN(RANGE):
         layer_norm: torch.nn.Module,
         output_network: torch.nn.Module,
         max_num_neighbors: int,
+        nls_distance_method: str = "torch",
     ):
         super().__init__(
             embedding_layer,
@@ -79,6 +83,7 @@ class RANGEPaiNN(RANGE):
             layer_norm,
             output_network,
             max_num_neighbors,
+            nls_distance_method=nls_distance_method,
         )
 
     def MakeRealSystem(self, data):
@@ -192,6 +197,7 @@ class StandardRANGEPaiNN(RANGEPaiNN):
         max_num_neighbors: int = 100,
         aggr: str = "add",
         epsilon: float = 1e-8,
+        nls_distance_method: str = "torch",
     ):
         if num_interactions < 1:
             raise ValueError("At least one interaction block must be specified")
@@ -276,4 +282,5 @@ class StandardRANGEPaiNN(RANGEPaiNN):
             layer_norm,
             output_network,
             max_num_neighbors,
+            nls_distance_method=nls_distance_method,
         )

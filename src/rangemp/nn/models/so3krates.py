@@ -52,6 +52,9 @@ class RANGESo3krates(RANGE):
         Hard cap on neighbor list size per node.
     normalize_sph : bool
         Whether to normalize computed spherical harmonics.
+    nls_distance_method:
+        Method for computing a neighbor list. Supported values are
+        `torch`, `nvalchemi_naive`, `nvalchemi_cell` and custom.
     """
 
     name: Final[str] = "RANGESo3krates"
@@ -71,6 +74,7 @@ class RANGESo3krates(RANGE):
         degrees: List[int],
         max_num_neighbors: int,
         normalize_sph: bool,
+        nls_distance_method: str = "torch",
     ):
         super().__init__(
             embedding_layer,
@@ -84,6 +88,7 @@ class RANGESo3krates(RANGE):
             layer_norm,
             output_network,
             max_num_neighbors,
+            nls_distance_method=nls_distance_method,
         )
 
         self.degrees = degrees
@@ -210,6 +215,7 @@ class StandardRANGESo3krates(RANGESo3krates):
         normalize_sph: bool = True,
         aggr: str = "add",
         epsilon: float = 1e-8,
+        nls_distance_method: str = "torch",
     ):
         if num_interactions < 1:
             raise ValueError("At least one interaction block must be specified")
@@ -320,4 +326,5 @@ class StandardRANGESo3krates(RANGESo3krates):
             degrees,
             max_num_neighbors,
             normalize_sph,
+            nls_distance_method=nls_distance_method,
         )

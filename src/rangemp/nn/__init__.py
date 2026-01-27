@@ -9,7 +9,6 @@ from .models import (
     StandardRANGEMACE,
 )
 
-
 __all__ = [
     "RANGESchNet",
     "StandardRANGESchNet",
