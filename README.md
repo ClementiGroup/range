@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/932667250.svg)](https://doi.org/10.5281/zenodo.18459441)
+
 ![test](banner.png)
 
 RANGE is a model-agnostic framework that employs an attention-based aggregation-broadcast mechanism to significantly reduce oversquashing effects in message-passing neural networks.
@@ -12,7 +14,5 @@ Install the `rangemp` package **inside the newly created environment**:
 
 ```bash
 git clone git@github.com:ClementiGroup/range.git range
-cd range
-pip install .
-cd ..
+cd range; pip install .; cd ..
 ```
