@@ -11,8 +11,8 @@ This package provides the core infrastructure used to train and simulate all the
 Install the `rangemp` package **inside the newly created environment**:
 
 ```bash
-git clone git@github.com:ClementiGroup/range-dev.git range-dev
-cd range-dev
+git clone git@github.com:ClementiGroup/range.git range
+cd range
 pip install .
 cd ..
 ```
